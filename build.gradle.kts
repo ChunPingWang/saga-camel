@@ -19,8 +19,8 @@ subprojects {
     apply(plugin = "io.spring.dependency-management")
 
     java {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     dependencies {
@@ -36,6 +36,12 @@ subprojects {
         "testImplementation"("org.springframework.boot:spring-boot-starter-test")
         "testCompileOnly"("org.projectlombok:lombok")
         "testAnnotationProcessor"("org.projectlombok:lombok")
+
+        // BDD - Cucumber
+        "testImplementation"("io.cucumber:cucumber-java:7.15.0")
+        "testImplementation"("io.cucumber:cucumber-spring:7.15.0")
+        "testImplementation"("io.cucumber:cucumber-junit-platform-engine:7.15.0")
+        "testImplementation"("org.junit.platform:junit-platform-suite:1.10.1")
     }
 
     tasks.withType<Test> {
