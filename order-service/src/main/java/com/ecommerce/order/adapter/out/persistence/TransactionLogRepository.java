@@ -50,17 +50,19 @@ public interface TransactionLogRepository extends JpaRepository<TransactionLogEn
     List<String> findTimedOutTransactions(@Param("olderThan") LocalDateTime olderThan);
 
     /**
-     * Find unfinished transactions (no terminal status like D or RF for SAGA).
+     * Find unfinished transactions that still have at least one U (UNKNOWN) status.
+     * Returns txId and orderId for recovery.
      */
     @Query("""
-        SELECT DISTINCT t.txId FROM TransactionLogEntity t
-        WHERE NOT EXISTS (
+        SELECT DISTINCT t.txId, t.orderId FROM TransactionLogEntity t
+        WHERE t.status = 'U'
+        AND NOT EXISTS (
             SELECT 1 FROM TransactionLogEntity t2
-            WHERE t2.txId = t.txId AND t2.serviceName = 'SAGA'
-            AND t2.status IN ('S', 'D', 'RF')
+            WHERE t2.txId = t.txId AND t2.status IN ('S', 'R', 'RF')
+            AND t2.serviceName = t.serviceName
         )
     """)
-    List<String> findUnfinishedTransactions();
+    List<Object[]> findUnfinishedTransactionsWithOrderId();
 
     /**
      * Check if transaction has a terminal status.

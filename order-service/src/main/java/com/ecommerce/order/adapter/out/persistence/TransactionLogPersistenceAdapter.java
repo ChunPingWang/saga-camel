@@ -135,10 +135,13 @@ public class TransactionLogPersistenceAdapter implements TransactionLogPort {
     }
 
     @Override
-    public List<UUID> findUnfinishedTransactions() {
-        return repository.findUnfinishedTransactions()
+    public List<UnfinishedTransaction> findUnfinishedTransactions() {
+        return repository.findUnfinishedTransactionsWithOrderId()
                 .stream()
-                .map(UUID::fromString)
+                .map(row -> new UnfinishedTransaction(
+                        UUID.fromString((String) row[0]),
+                        UUID.fromString((String) row[1])
+                ))
                 .collect(Collectors.toList());
     }
 

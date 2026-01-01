@@ -70,8 +70,14 @@ public interface TransactionLogPort {
 
     /**
      * Find all unfinished transactions (for recovery on restart).
+     * Returns both txId and orderId for checker thread startup.
      */
-    List<UUID> findUnfinishedTransactions();
+    List<UnfinishedTransaction> findUnfinishedTransactions();
+
+    /**
+     * Record representing an unfinished transaction.
+     */
+    record UnfinishedTransaction(UUID txId, UUID orderId) {}
 
     /**
      * Record notification timestamp for admin alerts.
