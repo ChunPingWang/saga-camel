@@ -10,6 +10,7 @@ import com.ecommerce.order.application.port.in.TransactionQueryUseCase;
 import com.ecommerce.order.application.port.out.OutboxPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.domain.model.TransactionLog;
+import com.ecommerce.order.infrastructure.checker.CheckerThreadManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -18,7 +19,6 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.*;
 
 /**
@@ -35,13 +35,24 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
             ServiceName.LOGISTICS
     );
 
+    // Default timeout thresholds in seconds (from PRD Section 8.4)
+    private static final Map<ServiceName, Integer> DEFAULT_TIMEOUTS = Map.of(
+            ServiceName.CREDIT_CARD, 30,
+            ServiceName.INVENTORY, 60,
+            ServiceName.LOGISTICS, 120
+    );
+
     private final TransactionLogPort transactionLogPort;
     private final OutboxPort outboxPort;
+    private final CheckerThreadManager checkerThreadManager;
     private final ObjectMapper objectMapper;
 
-    public OrderSagaService(TransactionLogPort transactionLogPort, OutboxPort outboxPort) {
+    public OrderSagaService(TransactionLogPort transactionLogPort,
+                            OutboxPort outboxPort,
+                            CheckerThreadManager checkerThreadManager) {
         this.transactionLogPort = transactionLogPort;
         this.outboxPort = outboxPort;
+        this.checkerThreadManager = checkerThreadManager;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -77,6 +88,11 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
                     payloadJson
             );
             outboxPort.save(outboxEvent);
+
+            // Start checker thread to monitor for timeout/failure (T106)
+            UUID txUuid = UUID.fromString(txId);
+            UUID orderUuid = UUID.fromString(request.orderId());
+            checkerThreadManager.startCheckerThread(txUuid, orderUuid, DEFAULT_TIMEOUTS);
 
             log.info("Order confirmation initiated successfully txId={}", txId);
             return new OrderConfirmResponse(txId, "PROCESSING");
