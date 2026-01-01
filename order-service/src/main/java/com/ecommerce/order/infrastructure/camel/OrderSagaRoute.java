@@ -28,15 +28,9 @@ import java.util.UUID;
 public class OrderSagaRoute extends RouteBuilder {
 
     private static final List<ServiceConfig> DEFAULT_SERVICE_ORDER = List.of(
-            new ServiceConfig(1, ServiceName.CREDIT_CARD,
-                    "http://localhost:8081/api/v1/credit-card/notify",
-                    "http://localhost:8081/api/v1/credit-card/rollback"),
-            new ServiceConfig(2, ServiceName.INVENTORY,
-                    "http://localhost:8082/api/v1/inventory/notify",
-                    "http://localhost:8082/api/v1/inventory/rollback"),
-            new ServiceConfig(3, ServiceName.LOGISTICS,
-                    "http://localhost:8083/api/v1/logistics/notify",
-                    "http://localhost:8083/api/v1/logistics/rollback")
+            ServiceConfig.defaultFor(ServiceName.CREDIT_CARD, 1),
+            ServiceConfig.defaultFor(ServiceName.INVENTORY, 2),
+            ServiceConfig.defaultFor(ServiceName.LOGISTICS, 3)
     );
 
     private final PreNotifyProcessor preNotifyProcessor;

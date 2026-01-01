@@ -19,7 +19,9 @@ class ServiceConfigTest {
                 1,
                 ServiceName.CREDIT_CARD,
                 "http://localhost:8081/api/v1/credit-card/notify",
-                "http://localhost:8081/api/v1/credit-card/rollback"
+                "http://localhost:8081/api/v1/credit-card/rollback",
+                30,
+                true
         );
 
         // Then
@@ -27,13 +29,15 @@ class ServiceConfigTest {
         assertEquals(ServiceName.CREDIT_CARD, config.name());
         assertEquals("http://localhost:8081/api/v1/credit-card/notify", config.notifyUrl());
         assertEquals("http://localhost:8081/api/v1/credit-card/rollback", config.rollbackUrl());
+        assertEquals(30, config.timeoutSeconds());
+        assertTrue(config.active());
     }
 
     @Test
     @DisplayName("should throw exception when order is less than 1")
     void shouldThrowExceptionWhenOrderIsLessThan1() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ServiceConfig(0, ServiceName.CREDIT_CARD, "http://notify", "http://rollback")
+                new ServiceConfig(0, ServiceName.CREDIT_CARD, "http://notify", "http://rollback", 30, true)
         );
     }
 
@@ -41,7 +45,7 @@ class ServiceConfigTest {
     @DisplayName("should throw exception when name is null")
     void shouldThrowExceptionWhenNameIsNull() {
         assertThrows(NullPointerException.class, () ->
-                new ServiceConfig(1, null, "http://notify", "http://rollback")
+                new ServiceConfig(1, null, "http://notify", "http://rollback", 30, true)
         );
     }
 
@@ -49,7 +53,7 @@ class ServiceConfigTest {
     @DisplayName("should throw exception when notifyUrl is blank")
     void shouldThrowExceptionWhenNotifyUrlIsBlank() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ServiceConfig(1, ServiceName.CREDIT_CARD, "", "http://rollback")
+                new ServiceConfig(1, ServiceName.CREDIT_CARD, "", "http://rollback", 30, true)
         );
     }
 
@@ -57,7 +61,7 @@ class ServiceConfigTest {
     @DisplayName("should throw exception when rollbackUrl is blank")
     void shouldThrowExceptionWhenRollbackUrlIsBlank() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ServiceConfig(1, ServiceName.CREDIT_CARD, "http://notify", "")
+                new ServiceConfig(1, ServiceName.CREDIT_CARD, "http://notify", "", 30, true)
         );
     }
 
@@ -72,5 +76,20 @@ class ServiceConfigTest {
         assertEquals(ServiceName.INVENTORY, config.name());
         assertTrue(config.notifyUrl().contains("inventory"));
         assertTrue(config.rollbackUrl().contains("inventory"));
+        assertEquals(120, config.timeoutSeconds()); // Default timeout
+        assertTrue(config.active()); // Default active
+    }
+
+    @Test
+    @DisplayName("should create config with of() factory method")
+    void shouldCreateConfigWithOfFactoryMethod() {
+        // When
+        ServiceConfig config = ServiceConfig.of(ServiceName.LOGISTICS, 3, 90, false);
+
+        // Then
+        assertEquals(3, config.order());
+        assertEquals(ServiceName.LOGISTICS, config.name());
+        assertEquals(90, config.timeoutSeconds());
+        assertFalse(config.active());
     }
 }

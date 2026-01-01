@@ -216,15 +216,9 @@ class OrderSagaRouteTest {
 
             // Configure custom order: INVENTORY -> CREDIT_CARD -> LOGISTICS
             List<ServiceConfig> customOrder = List.of(
-                    new ServiceConfig(1, ServiceName.INVENTORY,
-                            "http://localhost:8082/api/v1/inventory/notify",
-                            "http://localhost:8082/api/v1/inventory/rollback"),
-                    new ServiceConfig(2, ServiceName.CREDIT_CARD,
-                            "http://localhost:8081/api/v1/credit-card/notify",
-                            "http://localhost:8081/api/v1/credit-card/rollback"),
-                    new ServiceConfig(3, ServiceName.LOGISTICS,
-                            "http://localhost:8083/api/v1/logistics/notify",
-                            "http://localhost:8083/api/v1/logistics/rollback")
+                    ServiceConfig.defaultFor(ServiceName.INVENTORY, 1),
+                    ServiceConfig.defaultFor(ServiceName.CREDIT_CARD, 2),
+                    ServiceConfig.defaultFor(ServiceName.LOGISTICS, 3)
             );
 
             when(serviceClientPort.notify(any(ServiceName.class), any(NotifyRequest.class)))
