@@ -41,14 +41,39 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,camel
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+    info:
+      enabled: true
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+    camel:
+      enabled: true
   metrics:
     export:
       prometheus:
         enabled: true
+    distribution:
+      percentiles-histogram:
+        saga.transactions.duration: true
+        saga.service.duration: true
+      percentiles:
+        saga.transactions.duration: 0.5, 0.95, 0.99
+        saga.service.duration: 0.5, 0.95, 0.99
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
 
 # OpenAPI / Swagger Configuration
 springdoc:
