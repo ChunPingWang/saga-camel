@@ -1,0 +1,74 @@
+package com.ecommerce.order.adapter.out.persistence;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * JPA repository for transaction_log table.
+ */
+public interface TransactionLogRepository extends JpaRepository<TransactionLogEntity, Long> {
+
+    /**
+     * Find all logs for a transaction ordered by creation time.
+     */
+    List<TransactionLogEntity> findByTxIdOrderByCreatedAtAsc(String txId);
+
+    /**
+     * Find the latest log entry for a specific service in a transaction.
+     */
+    @Query("SELECT t FROM TransactionLogEntity t WHERE t.txId = :txId AND t.serviceName = :serviceName ORDER BY t.createdAt DESC")
+    List<TransactionLogEntity> findByTxIdAndServiceNameOrderByCreatedAtDesc(
+            @Param("txId") String txId,
+            @Param("serviceName") String serviceName
+    );
+
+    /**
+     * Find successful services for a transaction (latest status is 'S').
+     */
+    @Query("""
+        SELECT DISTINCT t.serviceName FROM TransactionLogEntity t
+        WHERE t.txId = :txId AND t.status = 'S'
+        AND t.createdAt = (
+            SELECT MAX(t2.createdAt) FROM TransactionLogEntity t2
+            WHERE t2.txId = t.txId AND t2.serviceName = t.serviceName
+        )
+    """)
+    List<String> findSuccessfulServices(@Param("txId") String txId);
+
+    /**
+     * Find transaction IDs with uncommitted status older than the given time.
+     */
+    @Query("""
+        SELECT DISTINCT t.txId FROM TransactionLogEntity t
+        WHERE t.status = 'U' AND t.createdAt < :olderThan
+    """)
+    List<String> findTimedOutTransactions(@Param("olderThan") LocalDateTime olderThan);
+
+    /**
+     * Find unfinished transactions (no terminal status like D or RF for SAGA).
+     */
+    @Query("""
+        SELECT DISTINCT t.txId FROM TransactionLogEntity t
+        WHERE NOT EXISTS (
+            SELECT 1 FROM TransactionLogEntity t2
+            WHERE t2.txId = t.txId AND t2.serviceName = 'SAGA'
+            AND t2.status IN ('S', 'D', 'RF')
+        )
+    """)
+    List<String> findUnfinishedTransactions();
+
+    /**
+     * Check if transaction has a terminal status.
+     */
+    @Query("""
+        SELECT COUNT(t) > 0 FROM TransactionLogEntity t
+        WHERE t.txId = :txId AND t.serviceName = 'SAGA'
+        AND t.status IN ('S', 'D', 'RF')
+    """)
+    boolean hasTerminalStatus(@Param("txId") String txId);
+}

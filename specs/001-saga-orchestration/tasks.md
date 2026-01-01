@@ -29,15 +29,15 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 **Purpose**: Initialize Gradle multi-module project and basic structure
 
-- [ ] T001 Create root `build.gradle.kts` with Spring Boot 3.2.x, Java 21, and shared dependencies
-- [ ] T002 Create `settings.gradle.kts` with module includes (common, order-service, credit-card-service, inventory-service, logistics-service)
-- [ ] T003 [P] Create `gradle.properties` with shared version properties
-- [ ] T004 [P] Create `.gitignore` for Gradle/Java projects
-- [ ] T005 [P] Create `common/build.gradle.kts` for shared module
-- [ ] T006 [P] Create `order-service/build.gradle.kts` with Camel, WebSocket, H2 dependencies
-- [ ] T007 [P] Create `credit-card-service/build.gradle.kts`
-- [ ] T008 [P] Create `inventory-service/build.gradle.kts`
-- [ ] T009 [P] Create `logistics-service/build.gradle.kts`
+- [x] T001 Create root `build.gradle.kts` with Spring Boot 3.2.x, Java 17, and shared dependencies
+- [x] T002 Create `settings.gradle.kts` with module includes (common, order-service, credit-card-service, inventory-service, logistics-service)
+- [x] T003 [P] Create `gradle.properties` with shared version properties
+- [x] T004 [P] Create `.gitignore` for Gradle/Java projects
+- [x] T005 [P] Create `common/build.gradle.kts` for shared module
+- [x] T006 [P] Create `order-service/build.gradle.kts` with Camel, WebSocket, H2 dependencies
+- [x] T007 [P] Create `credit-card-service/build.gradle.kts`
+- [x] T008 [P] Create `inventory-service/build.gradle.kts`
+- [x] T009 [P] Create `logistics-service/build.gradle.kts`
 
 **Checkpoint**: `./gradlew clean build` should succeed with empty modules
 
@@ -51,69 +51,69 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Common Module Domain
 
-- [ ] T010 [P] Create `TransactionStatus` enum in `common/src/main/java/com/ecommerce/common/domain/TransactionStatus.java` (U, S, F, R, D, RF)
-- [ ] T011 [P] Create `ServiceName` enum in `common/src/main/java/com/ecommerce/common/domain/ServiceName.java` (CREDIT_CARD, INVENTORY, LOGISTICS, SAGA)
+- [x] T010 [P] Create `TransactionStatus` enum in `common/src/main/java/com/ecommerce/common/domain/TransactionStatus.java` (U, S, F, R, D, RF)
+- [x] T011 [P] Create `ServiceName` enum in `common/src/main/java/com/ecommerce/common/domain/ServiceName.java` (CREDIT_CARD, INVENTORY, LOGISTICS, SAGA)
 
 ### Common Module DTOs
 
-- [ ] T012 [P] Create `NotifyRequest` DTO in `common/src/main/java/com/ecommerce/common/dto/NotifyRequest.java`
-- [ ] T013 [P] Create `NotifyResponse` DTO in `common/src/main/java/com/ecommerce/common/dto/NotifyResponse.java`
-- [ ] T014 [P] Create `RollbackRequest` DTO in `common/src/main/java/com/ecommerce/common/dto/RollbackRequest.java`
-- [ ] T015 [P] Create `RollbackResponse` DTO in `common/src/main/java/com/ecommerce/common/dto/RollbackResponse.java`
+- [x] T012 [P] Create `NotifyRequest` DTO in `common/src/main/java/com/ecommerce/common/dto/NotifyRequest.java`
+- [x] T013 [P] Create `NotifyResponse` DTO in `common/src/main/java/com/ecommerce/common/dto/NotifyResponse.java`
+- [x] T014 [P] Create `RollbackRequest` DTO in `common/src/main/java/com/ecommerce/common/dto/RollbackRequest.java`
+- [x] T015 [P] Create `RollbackResponse` DTO in `common/src/main/java/com/ecommerce/common/dto/RollbackResponse.java`
 
 ### Common Module Exception
 
-- [ ] T016 Create `ServiceException` in `common/src/main/java/com/ecommerce/common/exception/ServiceException.java`
+- [x] T016 Create `ServiceException` in `common/src/main/java/com/ecommerce/common/exception/ServiceException.java`
 
 ### Order Service Database Schema
 
-- [ ] T017 Create `schema.sql` in `order-service/src/main/resources/schema.sql` with transaction_log, outbox_event, saga_config tables
+- [x] T017 Create `schema.sql` in `order-service/src/main/resources/schema.sql` with transaction_log, outbox_event, saga_config tables
 
 ### Order Service Domain Layer (No Framework Imports)
 
-- [ ] T018 Write unit test for `Order` domain model in `order-service/src/test/java/com/ecommerce/order/domain/model/OrderTest.java`
-- [ ] T019 Create `Order` domain entity in `order-service/src/main/java/com/ecommerce/order/domain/model/Order.java`
-- [ ] T020 [P] Write unit test for `TransactionLog` domain model in `order-service/src/test/java/com/ecommerce/order/domain/model/TransactionLogTest.java`
-- [ ] T021 [P] Create `TransactionLog` domain entity in `order-service/src/main/java/com/ecommerce/order/domain/model/TransactionLog.java`
-- [ ] T022 [P] Write unit test for `ServiceConfig` value object in `order-service/src/test/java/com/ecommerce/order/domain/model/ServiceConfigTest.java`
-- [ ] T023 [P] Create `ServiceConfig` value object in `order-service/src/main/java/com/ecommerce/order/domain/model/ServiceConfig.java`
-- [ ] T024 [P] Create `TransactionEvent` domain event in `order-service/src/main/java/com/ecommerce/order/domain/event/TransactionEvent.java`
+- [x] T018 Write unit test for `Order` domain model in `order-service/src/test/java/com/ecommerce/order/domain/model/OrderTest.java`
+- [x] T019 Create `Order` domain entity in `order-service/src/main/java/com/ecommerce/order/domain/model/Order.java`
+- [x] T020 [P] Write unit test for `TransactionLog` domain model in `order-service/src/test/java/com/ecommerce/order/domain/model/TransactionLogTest.java`
+- [x] T021 [P] Create `TransactionLog` domain entity in `order-service/src/main/java/com/ecommerce/order/domain/model/TransactionLog.java`
+- [x] T022 [P] Write unit test for `ServiceConfig` value object in `order-service/src/test/java/com/ecommerce/order/domain/model/ServiceConfigTest.java`
+- [x] T023 [P] Create `ServiceConfig` value object in `order-service/src/main/java/com/ecommerce/order/domain/model/ServiceConfig.java`
+- [x] T024 [P] Create `TransactionEvent` domain event in `order-service/src/main/java/com/ecommerce/order/domain/event/TransactionEvent.java`
 
 ### Order Service Application Layer Ports
 
-- [ ] T025 [P] Create `TransactionLogPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/TransactionLogPort.java`
-- [ ] T026 [P] Create `OutboxPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/OutboxPort.java`
-- [ ] T027 [P] Create `ServiceClientPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/ServiceClientPort.java`
-- [ ] T028 [P] Create `WebSocketPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/WebSocketPort.java`
-- [ ] T029 [P] Create `NotificationPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/NotificationPort.java`
+- [x] T025 [P] Create `TransactionLogPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/TransactionLogPort.java`
+- [x] T026 [P] Create `OutboxPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/OutboxPort.java`
+- [x] T027 [P] Create `ServiceClientPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/ServiceClientPort.java`
+- [x] T028 [P] Create `WebSocketPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/WebSocketPort.java`
+- [x] T029 [P] Create `NotificationPort` interface in `order-service/src/main/java/com/ecommerce/order/application/port/out/NotificationPort.java`
 
 ### Order Service Persistence Adapters
 
-- [ ] T030 [P] Create `TransactionLogEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogEntity.java`
-- [ ] T031 [P] Create `OutboxEventEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxEventEntity.java`
-- [ ] T032 [P] Create `SagaConfigEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigEntity.java`
-- [ ] T033 [P] Create `TransactionLogRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogRepository.java`
-- [ ] T034 [P] Create `OutboxEventRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxEventRepository.java`
-- [ ] T035 [P] Create `SagaConfigRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigRepository.java`
-- [ ] T036 Write integration test for `TransactionLogPersistenceAdapter` in `order-service/src/test/java/com/ecommerce/order/adapter/out/persistence/TransactionLogPersistenceAdapterTest.java`
-- [ ] T037 Create `TransactionLogPersistenceAdapter` implementing `TransactionLogPort` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogPersistenceAdapter.java`
+- [x] T030 [P] Create `TransactionLogEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogEntity.java`
+- [x] T031 [P] Create `OutboxEventEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxEventEntity.java`
+- [x] T032 [P] Create `SagaConfigEntity` JPA entity in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigEntity.java`
+- [x] T033 [P] Create `TransactionLogRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogRepository.java`
+- [x] T034 [P] Create `OutboxEventRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxEventRepository.java`
+- [x] T035 [P] Create `SagaConfigRepository` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigRepository.java`
+- [x] T036 Write integration test for `TransactionLogPersistenceAdapter` in `order-service/src/test/java/com/ecommerce/order/adapter/out/persistence/TransactionLogPersistenceAdapterTest.java`
+- [x] T037 Create `TransactionLogPersistenceAdapter` implementing `TransactionLogPort` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/TransactionLogPersistenceAdapter.java`
 
 ### Order Service Infrastructure Config
 
-- [ ] T038 [P] Create `application.yml` in `order-service/src/main/resources/application.yml` with H2, WebSocket, Camel config
-- [ ] T039 [P] Create `DataSourceConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/DataSourceConfig.java`
-- [ ] T040 [P] Create `CamelConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/CamelConfig.java`
-- [ ] T041 [P] Create `SwaggerConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/SwaggerConfig.java`
-- [ ] T042 Create `OrderServiceApplication` main class in `order-service/src/main/java/com/ecommerce/order/OrderServiceApplication.java`
+- [x] T038 [P] Create `application.yml` in `order-service/src/main/resources/application.yml` with H2, WebSocket, Camel config
+- [x] T039 [P] Create `DataSourceConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/DataSourceConfig.java`
+- [x] T040 [P] Create `CamelConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/CamelConfig.java`
+- [x] T041 [P] Create `SwaggerConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/SwaggerConfig.java`
+- [x] T042 Create `OrderServiceApplication` main class in `order-service/src/main/java/com/ecommerce/order/OrderServiceApplication.java`
 
 ### Downstream Services Setup
 
-- [ ] T043 [P] Create `CreditCardServiceApplication` in `credit-card-service/src/main/java/com/ecommerce/creditcard/CreditCardServiceApplication.java`
-- [ ] T044 [P] Create `InventoryServiceApplication` in `inventory-service/src/main/java/com/ecommerce/inventory/InventoryServiceApplication.java`
-- [ ] T045 [P] Create `LogisticsServiceApplication` in `logistics-service/src/main/java/com/ecommerce/logistics/LogisticsServiceApplication.java`
-- [ ] T046 [P] Create `application.yml` for credit-card-service (port 8081)
-- [ ] T047 [P] Create `application.yml` for inventory-service (port 8082)
-- [ ] T048 [P] Create `application.yml` for logistics-service (port 8083)
+- [x] T043 [P] Create `CreditCardServiceApplication` in `credit-card-service/src/main/java/com/ecommerce/creditcard/CreditCardServiceApplication.java`
+- [x] T044 [P] Create `InventoryServiceApplication` in `inventory-service/src/main/java/com/ecommerce/inventory/InventoryServiceApplication.java`
+- [x] T045 [P] Create `LogisticsServiceApplication` in `logistics-service/src/main/java/com/ecommerce/logistics/LogisticsServiceApplication.java`
+- [x] T046 [P] Create `application.yml` for credit-card-service (port 8081)
+- [x] T047 [P] Create `application.yml` for inventory-service (port 8082)
+- [x] T048 [P] Create `application.yml` for logistics-service (port 8083)
 
 **Checkpoint**: All services start without errors. `./gradlew bootRun` for each service works.
 

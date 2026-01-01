@@ -1,0 +1,111 @@
+spring:
+  application:
+    name: order-service
+
+  datasource:
+    url: jdbc:h2:mem:orderdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+server:
+  port: 8080
+
+# Apache Camel Configuration
+camel:
+  springboot:
+    name: order-saga-camel
+    main-run-controller: true
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# OpenAPI / Swagger Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# Saga Configuration
+saga:
+  timeout:
+    credit-card: 30
+    inventory: 60
+    logistics: 120
+  rollback:
+    max-retries: 5
+  outbox:
+    poll-interval-ms: 1000
+  checker:
+    poll-interval-ms: 5000
+
+# Downstream Services
+services:
+  credit-card:
+    base-url: http://localhost:8081
+    notify-path: /api/v1/credit-card/notify
+    rollback-path: /api/v1/credit-card/rollback
+  inventory:
+    base-url: http://localhost:8082
+    notify-path: /api/v1/inventory/notify
+    rollback-path: /api/v1/inventory/rollback
+  logistics:
+    base-url: http://localhost:8083
+    notify-path: /api/v1/logistics/notify
+    rollback-path: /api/v1/logistics/rollback
+
+# Logging
+logging:
+  level:
+    com.ecommerce: DEBUG
+    org.apache.camel: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - txId=%X{txId} - %msg%n"
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.ecommerce: DEBUG

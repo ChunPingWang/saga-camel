@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: credit-card-service
+
+server:
+  port: 8081
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# OpenAPI / Swagger Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# Simulation Configuration
+simulation:
+  failure:
+    enabled: ${SIMULATE_FAILURE:false}
+    rate: 0.0  # 0.0 = never fail, 1.0 = always fail
+  delay:
+    enabled: false
+    min-ms: 0
+    max-ms: 0
+
+# Logging
+logging:
+  level:
+    com.ecommerce: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - txId=%X{txId} - %msg%n"
