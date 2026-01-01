@@ -1,0 +1,442 @@
+openapi: 3.0.3
+info:
+  title: Order Service API
+  description: |
+    Order Service (Saga Orchestrator) API for e-commerce transaction processing.
+    Provides order confirmation, transaction status queries, and WebSocket notifications.
+  version: 1.0.0
+  contact:
+    name: E-Commerce Saga Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Orders
+    description: Order confirmation and transaction operations
+  - name: Transactions
+    description: Transaction status queries
+  - name: Admin
+    description: Saga configuration management
+
+paths:
+  /api/v1/orders/confirm:
+    post:
+      tags:
+        - Orders
+      summary: Confirm order and start saga
+      description: |
+        Accepts an order confirmation request, immediately responds with a transaction ID,
+        and asynchronously processes the order through the saga workflow.
+      operationId: confirmOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderConfirmRequest'
+      responses:
+        '202':
+          description: Order accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderConfirmResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transactions/{txId}:
+    get:
+      tags:
+        - Transactions
+      summary: Query transaction status
+      description: Returns the full transaction history and current status for a given transaction ID.
+      operationId: getTransactionStatus
+      parameters:
+        - name: txId
+          in: path
+          required: true
+          description: Transaction identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionStatusResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/saga/service-order:
+    get:
+      tags:
+        - Admin
+      summary: Query service order configuration
+      description: Returns both active and pending service order configurations.
+      operationId: getServiceOrder
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderResponse'
+    put:
+      tags:
+        - Admin
+      summary: Update service order (staged)
+      description: Updates the service execution order. Changes are staged until explicitly applied.
+      operationId: updateServiceOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderRequest'
+      responses:
+        '200':
+          description: Configuration staged successfully
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/saga/service-order/apply:
+    post:
+      tags:
+        - Admin
+      summary: Apply staged service order
+      description: Activates the pending service order configuration. New orders will use the updated configuration.
+      operationId: applyServiceOrder
+      responses:
+        '200':
+          description: Configuration applied successfully
+        '404':
+          description: No pending configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/saga/timeout:
+    get:
+      tags:
+        - Admin
+      summary: Query timeout configuration
+      description: Returns both active and pending timeout configurations.
+      operationId: getTimeoutConfig
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoutResponse'
+    put:
+      tags:
+        - Admin
+      summary: Update timeout configuration (staged)
+      description: Updates the timeout thresholds per service. Changes are staged until explicitly applied.
+      operationId: updateTimeoutConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeoutRequest'
+      responses:
+        '200':
+          description: Configuration staged successfully
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/saga/timeout/apply:
+    post:
+      tags:
+        - Admin
+      summary: Apply staged timeout configuration
+      description: Activates the pending timeout configuration. New transactions will use the updated thresholds.
+      operationId: applyTimeoutConfig
+      responses:
+        '200':
+          description: Configuration applied successfully
+        '404':
+          description: No pending configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    OrderConfirmRequest:
+      type: object
+      required:
+        - orderId
+        - customerId
+        - items
+        - totalAmount
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: Unique order identifier
+        customerId:
+          type: string
+          description: Customer identifier
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          minItems: 1
+        totalAmount:
+          type: number
+          format: decimal
+          minimum: 0.01
+          description: Order total amount
+
+    OrderItem:
+      type: object
+      required:
+        - productId
+        - quantity
+        - price
+      properties:
+        productId:
+          type: string
+          description: Product identifier
+        productName:
+          type: string
+          description: Product name
+        quantity:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: decimal
+          minimum: 0.01
+
+    OrderConfirmResponse:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+          description: Transaction identifier for tracking
+        orderId:
+          type: string
+          format: uuid
+          description: Confirmed order ID
+        status:
+          type: string
+          enum: [ACCEPTED]
+          description: Initial acceptance status
+        message:
+          type: string
+          description: Human-readable message
+        websocketUrl:
+          type: string
+          description: WebSocket URL for real-time updates
+          example: ws://localhost:8080/ws/orders/{txId}
+        timestamp:
+          type: string
+          format: date-time
+
+    TransactionStatusResponse:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        currentStatus:
+          type: string
+          enum: [PROCESSING, COMPLETED, FAILED, ROLLING_BACK, ROLLED_BACK, ROLLBACK_FAILED]
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceStatus'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionLogEntry'
+
+    ServiceStatus:
+      type: object
+      properties:
+        serviceName:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+        status:
+          type: string
+          enum: [U, S, F, R, D, RF]
+          description: |
+            U=Uncommitted, S=Success, F=Failed, R=Rolled back, D=Done, RF=Rollback Failed
+        lastUpdated:
+          type: string
+          format: date-time
+
+    TransactionLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        serviceName:
+          type: string
+        status:
+          type: string
+        errorMessage:
+          type: string
+          nullable: true
+        retryCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ServiceOrderRequest:
+      type: object
+      required:
+        - services
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          minItems: 1
+
+    ServiceConfig:
+      type: object
+      required:
+        - order
+        - name
+        - notifyUrl
+        - rollbackUrl
+      properties:
+        order:
+          type: integer
+          minimum: 1
+          description: Execution sequence
+        name:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+        notifyUrl:
+          type: string
+          format: uri
+          description: URL for forward call
+        rollbackUrl:
+          type: string
+          format: uri
+          description: URL for compensation call
+
+    ServiceOrderResponse:
+      type: object
+      properties:
+        active:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          description: Currently active configuration
+        pending:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          nullable: true
+          description: Staged configuration awaiting apply
+
+    TimeoutRequest:
+      type: object
+      required:
+        - timeouts
+      properties:
+        timeouts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 1
+          description: Service name to timeout (seconds) mapping
+          example:
+            CREDIT_CARD: 30
+            INVENTORY: 60
+            LOGISTICS: 120
+
+    TimeoutResponse:
+      type: object
+      properties:
+        active:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Currently active timeout configuration
+        pending:
+          type: object
+          additionalProperties:
+            type: integer
+          nullable: true
+          description: Staged configuration awaiting apply
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+
+    WebSocketMessage:
+      type: object
+      description: Message format for WebSocket notifications
+      properties:
+        txId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PROCESSING, COMPLETED, FAILED, ROLLING_BACK, ROLLED_BACK, ROLLBACK_FAILED]
+        currentStep:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+          nullable: true
+        message:
+          type: string
+          description: Human-readable status message
+        timestamp:
+          type: string
+          format: date-time

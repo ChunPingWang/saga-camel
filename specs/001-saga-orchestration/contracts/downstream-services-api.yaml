@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Downstream Services API
+  description: |
+    API contracts for downstream services (Credit Card, Inventory, Logistics)
+    that participate in the Saga orchestration.
+
+    All services MUST implement:
+    - `/notify` endpoint for forward processing
+    - `/rollback` endpoint for compensation (MUST be idempotent)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081
+    description: Credit Card Service
+  - url: http://localhost:8082
+    description: Inventory Service
+  - url: http://localhost:8083
+    description: Logistics Service
+
+tags:
+  - name: Credit Card
+    description: Payment processing operations
+  - name: Inventory
+    description: Inventory reservation operations
+  - name: Logistics
+    description: Shipping scheduling operations
+
+paths:
+  # Credit Card Service
+  /api/v1/credit-card/notify:
+    post:
+      tags:
+        - Credit Card
+      summary: Process payment
+      description: Processes a payment for the given transaction. Called by saga orchestrator.
+      operationId: processPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyRequest'
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Payment processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/credit-card/rollback:
+    post:
+      tags:
+        - Credit Card
+      summary: Rollback payment (idempotent)
+      description: |
+        Reverses a previously processed payment. This operation is idempotent:
+        - Returns success if transaction never existed
+        - Returns success if already rolled back
+        - Returns success after successful rollback
+      operationId: rollbackPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+      responses:
+        '200':
+          description: Rollback completed (or no action needed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+        '500':
+          description: Rollback failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Inventory Service
+  /api/v1/inventory/notify:
+    post:
+      tags:
+        - Inventory
+      summary: Reserve inventory
+      description: Reserves inventory for the given order items. Called by saga orchestrator.
+      operationId: reserveInventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyRequest'
+      responses:
+        '200':
+          description: Inventory reserved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Insufficient inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Reservation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/inventory/rollback:
+    post:
+      tags:
+        - Inventory
+      summary: Release inventory reservation (idempotent)
+      description: |
+        Releases a previously reserved inventory. This operation is idempotent:
+        - Returns success if reservation never existed
+        - Returns success if already released
+        - Returns success after successful release
+      operationId: rollbackReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+      responses:
+        '200':
+          description: Reservation released (or no action needed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+        '500':
+          description: Release failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Logistics Service
+  /api/v1/logistics/notify:
+    post:
+      tags:
+        - Logistics
+      summary: Schedule shipment
+      description: Schedules a shipment for the given order. Called by saga orchestrator.
+      operationId: scheduleShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyRequest'
+      responses:
+        '200':
+          description: Shipment scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Scheduling failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/logistics/rollback:
+    post:
+      tags:
+        - Logistics
+      summary: Cancel shipment (idempotent)
+      description: |
+        Cancels a previously scheduled shipment. This operation is idempotent:
+        - Returns success if shipment never existed
+        - Returns success if already cancelled
+        - Returns success after successful cancellation
+      operationId: cancelShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+      responses:
+        '200':
+          description: Shipment cancelled (or no action needed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+        '500':
+          description: Cancellation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    NotifyRequest:
+      type: object
+      required:
+        - txId
+        - orderId
+      properties:
+        txId:
+          type: string
+          format: uuid
+          description: Transaction identifier from saga orchestrator
+        orderId:
+          type: string
+          format: uuid
+          description: Order identifier
+        payload:
+          type: object
+          description: Service-specific payload (order details, items, etc.)
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Request timestamp
+
+    NotifyResponse:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+          description: Whether the operation succeeded
+        message:
+          type: string
+          description: Human-readable result message
+        serviceReference:
+          type: string
+          description: Service-specific reference (payment ID, reservation ID, tracking number)
+        timestamp:
+          type: string
+          format: date-time
+
+    RollbackRequest:
+      type: object
+      required:
+        - txId
+        - orderId
+      properties:
+        txId:
+          type: string
+          format: uuid
+          description: Transaction identifier from saga orchestrator
+        orderId:
+          type: string
+          format: uuid
+          description: Order identifier
+        reason:
+          type: string
+          description: Reason for rollback
+        timestamp:
+          type: string
+          format: date-time
+
+    RollbackResponse:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+          description: |
+            Always true for idempotent operations:
+            - true if rollback succeeded
+            - true if transaction never existed
+            - true if already rolled back
+        message:
+          type: string
+          description: Human-readable result message
+          example: "Rolled back" | "No action needed" | "Already rolled back"
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        txId:
+          type: string
+          format: uuid
+          description: Transaction ID if available
