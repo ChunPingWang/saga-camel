@@ -6,11 +6,16 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // Apache Camel
     implementation("org.apache.camel.springboot:camel-spring-boot-starter:4.3.0")
     implementation("org.apache.camel.springboot:camel-http-starter:4.3.0")
     implementation("org.apache.camel.springboot:camel-jackson-starter:4.3.0")
+
+    // Resilience4j Circuit Breaker
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
 
     // Database
     runtimeOnly("com.h2database:h2")

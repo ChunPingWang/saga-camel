@@ -1,6 +1,6 @@
 # 電子商務微服務交易編排系統 - 技術規格文件 (TECH)
 
-> **版本**: 2.0  
+> **版本**: 3.0  
 > **建立日期**: 2026-01-01  
 > **狀態**: Draft
 
@@ -29,12 +29,14 @@
 │                                                    │                         │
 │  ┌─────────────────────────────────────────────────┼───────────────────┐    │
 │  │                    Apache Camel Route           │                   │    │
+│  │                  + Resilience4j Circuit Breaker │                   │    │
 │  │  ┌─────────┐    ┌─────────┐    ┌─────────┐     │                   │    │
 │  │  │CreditCard│───►│Inventory│───►│Logistics│◄────┘                   │    │
+│  │  │  [CB]   │    │  [CB]   │    │  [CB]   │                          │    │
 │  │  └─────────┘    └─────────┘    └─────────┘                          │    │
 │  │       │              │              │                               │    │
 │  │       └──────────────┴──────────────┘                               │    │
-│  │                      │ On Failure / Timeout                         │    │
+│  │                      │ On Failure / Timeout / CB Open               │    │
 │  │                      ▼                                              │    │
 │  │              ┌─────────────┐                                        │    │
 │  │              │  Rollback   │──► 反向順序回滾                        │    │
@@ -44,9 +46,9 @@
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │                    Checker Thread (每訂單一個)                       │    │
-│  │  - 監控 U 狀態超時                                                  │    │
-│  │  - 偵測 F 狀態觸發回滾                                              │    │
-│  │  - 全 S / D / RF 時停止                                             │    │
+│  │  - 監控 Pending 狀態超時                                            │    │
+│  │  - 偵測 Fail 狀態觸發回滾                                           │    │
+│  │  - 全 Success / 全 RollbackDone / 有 RollbackFail 時停止            │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
@@ -82,6 +84,7 @@
 | 語言 | Java 21 |
 | 框架 | Spring Boot 3.2.x |
 | 編排引擎 | Apache Camel 4.x |
+| 韌性模式 | Resilience4j (Circuit Breaker) |
 | WebSocket | Spring WebSocket |
 | 資料庫 | H2 Database (Embedded) |
 | API 文件 | Springdoc OpenAPI (Swagger) |
@@ -131,12 +134,15 @@ ecommerce-saga/
 │       │   │   ├── in/
 │       │   │   │   ├── web/
 │       │   │   │   │   ├── OrderController.java
+│       │   │   │   │   ├── TransactionController.java
 │       │   │   │   │   ├── AdminController.java
 │       │   │   │   │   └── dto/
 │       │   │   │   │       ├── OrderConfirmRequest.java
 │       │   │   │   │       ├── OrderConfirmResponse.java
+│       │   │   │   │       ├── TransactionQueryResponse.java
 │       │   │   │   │       ├── ServiceOrderRequest.java
 │       │   │   │   │       ├── TimeoutConfigRequest.java
+│       │   │   │   │       ├── ServiceRegistrationRequest.java
 │       │   │   │   │       └── WebSocketMessage.java
 │       │   │   │   └── websocket/
 │       │   │   │       └── OrderWebSocketHandler.java
@@ -161,8 +167,9 @@ ecommerce-saga/
 │       │   │   ├── port/
 │       │   │   │   ├── in/
 │       │   │   │   │   ├── OrderConfirmUseCase.java
+│       │   │   │   │   ├── TransactionQueryUseCase.java
 │       │   │   │   │   ├── SagaConfigUseCase.java
-│       │   │   │   │   └── TransactionQueryUseCase.java
+│       │   │   │   │   └── ServiceManagementUseCase.java
 │       │   │   │   └── out/
 │       │   │   │       ├── TransactionLogPort.java
 │       │   │   │       ├── OutboxPort.java
@@ -171,8 +178,10 @@ ecommerce-saga/
 │       │   │   │       └── NotificationPort.java
 │       │   │   └── service/
 │       │   │       ├── OrderSagaService.java
+│       │   │       ├── TransactionQueryService.java
 │       │   │       ├── RollbackService.java
 │       │   │       ├── SagaConfigService.java
+│       │   │       ├── ServiceManagementService.java
 │       │   │       └── SagaRecoveryService.java
 │       │   │
 │       │   ├── domain/                 # 領域層
@@ -198,7 +207,11 @@ ecommerce-saga/
 │       │       │   ├── CamelConfig.java
 │       │       │   ├── DataSourceConfig.java
 │       │       │   ├── WebSocketConfig.java
+│       │       │   ├── CircuitBreakerConfig.java
 │       │       │   └── SwaggerConfig.java
+│       │       ├── circuitbreaker/
+│       │       │   ├── ServiceCircuitBreaker.java
+│       │       │   └── CircuitBreakerRegistry.java
 │       │       ├── poller/
 │       │       │   └── OutboxPoller.java
 │       │       ├── checker/
@@ -208,6 +221,7 @@ ecommerce-saga/
 │       │       │   └── SagaRecoveryRunner.java
 │       │       └── observability/
 │       │           ├── SagaMetrics.java
+│       │           ├── CircuitBreakerMetrics.java
 │       │           └── TracingConfig.java
 │       │
 │       ├── main/resources/
@@ -221,55 +235,8 @@ ecommerce-saga/
 │           └── infrastructure/
 │
 ├── credit-card-service/                # 信用卡服務
-│   ├── build.gradle.kts
-│   └── src/main/java/com/ecommerce/creditcard/
-│       ├── CreditCardServiceApplication.java
-│       ├── adapter/
-│       │   └── in/web/
-│       │       └── CreditCardController.java
-│       ├── application/
-│       │   ├── port/in/
-│       │   │   ├── ProcessPaymentUseCase.java
-│       │   │   └── RollbackPaymentUseCase.java
-│       │   └── service/
-│       │       └── CreditCardService.java
-│       └── domain/
-│           └── model/
-│               └── Payment.java
-│
 ├── inventory-service/                  # 倉管服務
-│   ├── build.gradle.kts
-│   └── src/main/java/com/ecommerce/inventory/
-│       ├── InventoryServiceApplication.java
-│       ├── adapter/
-│       │   └── in/web/
-│       │       └── InventoryController.java
-│       ├── application/
-│       │   ├── port/in/
-│       │   │   ├── ReserveInventoryUseCase.java
-│       │   │   └── RollbackReservationUseCase.java
-│       │   └── service/
-│       │       └── InventoryService.java
-│       └── domain/
-│           └── model/
-│               └── Reservation.java
-│
 └── logistics-service/                  # 物流服務
-    ├── build.gradle.kts
-    └── src/main/java/com/ecommerce/logistics/
-        ├── LogisticsServiceApplication.java
-        ├── adapter/
-        │   └── in/web/
-        │       └── LogisticsController.java
-        ├── application/
-        │   ├── port/in/
-        │   │   ├── ScheduleShipmentUseCase.java
-        │   │   └── CancelShipmentUseCase.java
-        │   └── service/
-        │       └── LogisticsService.java
-        └── domain/
-            └── model/
-                └── Shipment.java
 ```
 
 ---
@@ -285,19 +252,23 @@ CREATE TABLE IF NOT EXISTS transaction_log (
     tx_id           VARCHAR(36) NOT NULL,
     order_id        VARCHAR(36) NOT NULL,
     service_name    VARCHAR(50) NOT NULL,
-    status          CHAR(2) NOT NULL,
+    status          VARCHAR(20) NOT NULL,
     error_message   VARCHAR(500),
     retry_count     INT DEFAULT 0,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     notified_at     TIMESTAMP,
     
-    CONSTRAINT chk_status CHECK (status IN ('U', 'S', 'F', 'R', 'D', 'RF'))
+    CONSTRAINT chk_status CHECK (status IN (
+        'Pending', 'Success', 'Fail', 
+        'Rollback', 'RollbackDone', 'RollbackFail', 'Skipped'
+    ))
 );
 
 -- Indexes for query optimization
 CREATE INDEX idx_tx_service_status ON transaction_log (tx_id, service_name, status);
 CREATE INDEX idx_status_created ON transaction_log (status, created_at);
 CREATE INDEX idx_order_id ON transaction_log (order_id);
+CREATE INDEX idx_tx_id ON transaction_log (tx_id);
 
 -- Outbox Table (for Outbox Pattern)
 CREATE TABLE IF NOT EXISTS outbox_event (
@@ -325,10 +296,44 @@ CREATE TABLE IF NOT EXISTS saga_config (
     updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX idx_config_type_key ON saga_config (config_type, config_key, is_active);
+CREATE UNIQUE INDEX idx_config_type_key_active ON saga_config (config_type, config_key, is_active);
+
+-- Transaction Service Snapshot (記錄每筆交易當時的參與服務)
+CREATE TABLE IF NOT EXISTS transaction_service_snapshot (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tx_id           VARCHAR(36) NOT NULL,
+    service_order   CLOB NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_snapshot_tx ON transaction_service_snapshot (tx_id);
 ```
 
-### 3.2 Entity 設計
+### 3.2 狀態碼定義
+
+```java
+public enum TransactionStatus {
+    Pending("Pending"),           // 已呼叫，等待回應
+    Success("Success"),           // 處理成功
+    Fail("Fail"),                 // 處理失敗
+    Rollback("Rollback"),         // 回滾中
+    RollbackDone("RollbackDone"), // 回滾完成
+    RollbackFail("RollbackFail"), // 回滾失敗
+    Skipped("Skipped");           // 被跳過
+    
+    private final String value;
+    
+    TransactionStatus(String value) {
+        this.value = value;
+    }
+    
+    public String getValue() {
+        return value;
+    }
+}
+```
+
+### 3.3 Entity 設計
 
 ```java
 // TransactionLogEntity.java
@@ -351,7 +356,7 @@ public class TransactionLogEntity {
     @Column(name = "service_name", nullable = false, length = 50)
     private String serviceName;
     
-    @Column(name = "status", nullable = false, length = 2)
+    @Column(name = "status", nullable = false, length = 20)
     private String status;
     
     @Column(name = "error_message", length = 500)
@@ -367,61 +372,36 @@ public class TransactionLogEntity {
     private LocalDateTime notifiedAt;
     
     public static TransactionLogEntity create(String txId, String orderId, 
-            String serviceName, String status) {
+            String serviceName, TransactionStatus status) {
         TransactionLogEntity entity = new TransactionLogEntity();
         entity.txId = txId;
         entity.orderId = orderId;
         entity.serviceName = serviceName;
-        entity.status = status;
+        entity.status = status.getValue();
         entity.createdAt = LocalDateTime.now();
         return entity;
     }
-}
-
-// OutboxEventEntity.java
-@Entity
-@Table(name = "outbox_event")
-@Getter
-@NoArgsConstructor
-public class OutboxEventEntity {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(name = "tx_id", nullable = false, length = 36)
-    private String txId;
-    
-    @Column(name = "order_id", nullable = false, length = 36)
-    private String orderId;
-    
-    @Column(name = "event_type", nullable = false, length = 100)
-    private String eventType;
-    
-    @Lob
-    @Column(name = "payload", nullable = false)
-    private String payload;
-    
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-    
-    @Column(name = "processed", nullable = false)
-    private Boolean processed = false;
-    
-    @Column(name = "processed_at")
-    private LocalDateTime processedAt;
+    public static TransactionLogEntity createWithError(String txId, String orderId,
+            String serviceName, TransactionStatus status, String errorMessage) {
+        TransactionLogEntity entity = create(txId, orderId, serviceName, status);
+        entity.errorMessage = errorMessage;
+        return entity;
+    }
 }
 ```
 
-### 3.3 狀態查詢 SQL
+### 3.4 狀態查詢 SQL
 
 ```sql
--- 查詢特定 TxID 的所有狀態記錄
-SELECT * FROM transaction_log 
-WHERE tx_id = ? 
-ORDER BY created_at ASC;
+-- 透過 Order ID 查詢所有相關交易
+SELECT DISTINCT tx_id, order_id, MIN(created_at) as tx_created_at
+FROM transaction_log
+WHERE order_id = ?
+GROUP BY tx_id, order_id
+ORDER BY tx_created_at DESC;
 
--- 查詢特定 TxID 的最新狀態（每個服務）
+-- 透過 TxID 查詢各服務最新狀態
 SELECT tl.* FROM transaction_log tl
 INNER JOIN (
     SELECT tx_id, service_name, MAX(created_at) as max_created
@@ -432,116 +412,126 @@ INNER JOIN (
         AND tl.service_name = latest.service_name 
         AND tl.created_at = latest.max_created;
 
--- 查詢未完成的交易（服務重啟恢復用）
-SELECT DISTINCT tx_id FROM transaction_log t1
+-- 查詢未完成的交易（非終態）
+SELECT DISTINCT t1.tx_id, t1.order_id FROM transaction_log t1
 WHERE NOT EXISTS (
     -- 排除全部成功的交易
-    SELECT 1 FROM transaction_log t2
-    WHERE t2.tx_id = t1.tx_id
-    GROUP BY t2.tx_id
-    HAVING COUNT(DISTINCT CASE WHEN t2.status = 'S' THEN t2.service_name END) = 3
+    SELECT 1 FROM transaction_service_snapshot snap
+    INNER JOIN transaction_log t2 ON t2.tx_id = snap.tx_id
+    WHERE snap.tx_id = t1.tx_id
+    GROUP BY snap.tx_id
+    HAVING COUNT(DISTINCT CASE WHEN t2.status = 'Success' THEN t2.service_name END) = 
+           (SELECT COUNT(*) FROM JSON_TABLE(snap.service_order, '$[*]' COLUMNS (name VARCHAR(50) PATH '$.name')))
 )
 AND NOT EXISTS (
-    -- 排除已完成回滾的交易
+    -- 排除全部回滾完成的交易
+    SELECT 1 FROM transaction_service_snapshot snap
+    INNER JOIN transaction_log t2 ON t2.tx_id = snap.tx_id
+    WHERE snap.tx_id = t1.tx_id
+    GROUP BY snap.tx_id
+    HAVING COUNT(DISTINCT CASE WHEN t2.status IN ('RollbackDone', 'Skipped') THEN t2.service_name END) = 
+           (SELECT COUNT(*) FROM JSON_TABLE(snap.service_order, '$[*]' COLUMNS (name VARCHAR(50) PATH '$.name')))
+)
+AND NOT EXISTS (
+    -- 排除有回滾失敗的交易
     SELECT 1 FROM transaction_log t3
-    WHERE t3.tx_id = t1.tx_id AND t3.status = 'D'
-)
-AND NOT EXISTS (
-    -- 排除回滾失敗的交易
-    SELECT 1 FROM transaction_log t4
-    WHERE t4.tx_id = t1.tx_id AND t4.status = 'RF'
+    WHERE t3.tx_id = t1.tx_id AND t3.status = 'RollbackFail'
 );
 ```
 
 ---
 
-## 4. Outbox Pattern 實作
+## 4. Circuit Breaker 實作
 
-### 4.1 Outbox Service
+### 4.1 Resilience4j 設定
 
 ```java
-@Service
-@RequiredArgsConstructor
-@Transactional
-public class OutboxService implements OutboxPort {
+@Configuration
+public class CircuitBreakerConfig {
 
-    private final OutboxEventRepository outboxEventRepository;
-    private final TransactionLogRepository transactionLogRepository;
-    private final ObjectMapper objectMapper;
-
-    @Override
-    public void createSagaEvent(String txId, String orderId, Order order) {
-        // 在同一個 Transaction 中：
-        // 1. 寫入初始交易日誌
-        TransactionLogEntity initLog = TransactionLogEntity.create(
-            txId, orderId, "SAGA", "U"
-        );
-        transactionLogRepository.save(initLog);
+    @Bean
+    public CircuitBreakerRegistry circuitBreakerRegistry() {
+        CircuitBreakerConfig config = CircuitBreakerConfig.custom()
+            .failureRateThreshold(50)                    // 失敗率閾值 50%
+            .slowCallRateThreshold(50)                   // 慢呼叫率閾值 50%
+            .slowCallDurationThreshold(Duration.ofSeconds(10)) // 慢呼叫定義
+            .waitDurationInOpenState(Duration.ofSeconds(30))   // Open 等待時間
+            .permittedNumberOfCallsInHalfOpenState(3)    // Half-Open 允許呼叫數
+            .slidingWindowType(SlidingWindowType.COUNT_BASED)
+            .slidingWindowSize(10)                       // 滑動視窗大小
+            .minimumNumberOfCalls(5)                     // 最小呼叫數
+            .build();
         
-        // 2. 寫入 Outbox 事件
-        OutboxEventEntity event = new OutboxEventEntity();
-        event.setTxId(txId);
-        event.setOrderId(orderId);
-        event.setEventType("SAGA_START");
-        event.setPayload(toJson(order));
-        event.setCreatedAt(LocalDateTime.now());
-        event.setProcessed(false);
-        outboxEventRepository.save(event);
-    }
-    
-    private String toJson(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("JSON serialization failed", e);
-        }
+        return CircuitBreakerRegistry.of(config);
     }
 }
 ```
 
-### 4.2 Outbox Poller（單一）
+### 4.2 Service Circuit Breaker Wrapper
 
 ```java
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class OutboxPoller {
+public class ServiceCircuitBreaker {
 
-    private final OutboxEventRepository outboxEventRepository;
-    private final ProducerTemplate producerTemplate;
-    private final ObjectMapper objectMapper;
+    private final CircuitBreakerRegistry circuitBreakerRegistry;
+    private final Map<String, CircuitBreaker> breakers = new ConcurrentHashMap<>();
 
-    @Scheduled(fixedDelayString = "${outbox.poll.interval:500}")
-    @Transactional
-    public void pollAndProcess() {
-        List<OutboxEventEntity> events = outboxEventRepository
-            .findByProcessedFalseOrderByCreatedAtAsc();
+    public CircuitBreaker getOrCreate(String serviceName) {
+        return breakers.computeIfAbsent(serviceName, 
+            name -> circuitBreakerRegistry.circuitBreaker(name));
+    }
+
+    public <T> T executeWithCircuitBreaker(String serviceName, 
+            Supplier<T> supplier, Supplier<T> fallback) {
+        CircuitBreaker breaker = getOrCreate(serviceName);
         
-        for (OutboxEventEntity event : events) {
-            try {
-                processEvent(event);
-                event.setProcessed(true);
-                event.setProcessedAt(LocalDateTime.now());
-                outboxEventRepository.save(event);
-            } catch (Exception e) {
-                log.error("Failed to process outbox event: {}", event.getId(), e);
-                // 不標記為 processed，下次繼續處理
-            }
+        try {
+            return breaker.executeSupplier(supplier);
+        } catch (CallNotPermittedException e) {
+            log.warn("Circuit breaker OPEN for service: {}", serviceName);
+            return fallback.get();
+        } catch (Exception e) {
+            log.error("Service call failed: {}", serviceName, e);
+            throw e;
         }
     }
 
-    private void processEvent(OutboxEventEntity event) {
-        if ("SAGA_START".equals(event.getEventType())) {
-            // 透過 Camel 啟動 Saga
-            Map<String, Object> headers = Map.of(
-                "txId", event.getTxId(),
-                "orderId", event.getOrderId()
-            );
-            producerTemplate.sendBodyAndHeaders(
-                "direct:startSaga", 
-                event.getPayload(), 
-                headers
-            );
+    public CircuitBreaker.State getState(String serviceName) {
+        return getOrCreate(serviceName).getState();
+    }
+
+    public CircuitBreaker.Metrics getMetrics(String serviceName) {
+        return getOrCreate(serviceName).getMetrics();
+    }
+}
+```
+
+### 4.3 Camel 整合 Circuit Breaker
+
+```java
+@Component
+@RequiredArgsConstructor
+public class CircuitBreakerProcessor implements Processor {
+
+    private final ServiceCircuitBreaker serviceCircuitBreaker;
+    private final TransactionLogPort transactionLogPort;
+
+    @Override
+    public void process(Exchange exchange) throws Exception {
+        String serviceName = exchange.getProperty("currentService", String.class);
+        String txId = exchange.getProperty("txId", String.class);
+        
+        CircuitBreaker.State state = serviceCircuitBreaker.getState(serviceName);
+        
+        if (state == CircuitBreaker.State.OPEN) {
+            // 斷路器開啟，直接記錄失敗
+            transactionLogPort.recordStatus(txId, serviceName, 
+                TransactionStatus.Fail, "Circuit breaker is OPEN");
+            
+            exchange.setProperty("circuitBreakerOpen", true);
+            exchange.setProperty("serviceFailed", true);
         }
     }
 }
@@ -551,7 +541,7 @@ public class OutboxPoller {
 
 ## 5. Apache Camel Route 設計
 
-### 5.1 動態服務順序 Route
+### 5.1 動態服務順序 Route（含 Circuit Breaker）
 
 ```java
 @Component
@@ -561,6 +551,7 @@ public class OrderSagaRoute extends RouteBuilder {
     private final SagaConfigService sagaConfigService;
     private final TransactionLogPort transactionLogPort;
     private final WebSocketPort webSocketPort;
+    private final ServiceCircuitBreaker serviceCircuitBreaker;
 
     @Override
     public void configure() throws Exception {
@@ -575,23 +566,33 @@ public class OrderSagaRoute extends RouteBuilder {
                     Exception.class).getMessage();
                 
                 // 記錄失敗狀態
-                transactionLogPort.recordStatus(txId, serviceName, "F", errorMsg);
+                transactionLogPort.recordStatus(txId, serviceName, 
+                    TransactionStatus.Fail, errorMsg);
                 
                 // 推送 WebSocket
                 webSocketPort.sendStatus(txId, "FAILED", serviceName, 
                     "服務呼叫失敗: " + errorMsg);
+                
+                exchange.setProperty("serviceFailed", true);
             })
-            .to("direct:rollback");
+            .to("direct:triggerRollback");
 
         // Main Saga Route
         from("direct:startSaga")
             .routeId("saga-start")
             .process(exchange -> {
                 String txId = exchange.getIn().getHeader("txId", String.class);
+                String orderId = exchange.getIn().getHeader("orderId", String.class);
+                
+                // 取得當前生效的服務順序並建立快照
                 List<ServiceConfig> services = sagaConfigService.getActiveServiceOrder();
+                sagaConfigService.createServiceSnapshot(txId, services);
+                
                 exchange.setProperty("txId", txId);
+                exchange.setProperty("orderId", orderId);
                 exchange.setProperty("serviceList", services);
                 exchange.setProperty("serviceIndex", 0);
+                exchange.setProperty("serviceFailed", false);
             })
             .to("direct:processNextService");
 
@@ -599,6 +600,8 @@ public class OrderSagaRoute extends RouteBuilder {
         from("direct:processNextService")
             .routeId("process-next-service")
             .choice()
+                .when(simple("${exchangeProperty.serviceFailed} == true"))
+                    .to("direct:triggerRollback")
                 .when(exchange -> {
                     int index = exchange.getProperty("serviceIndex", Integer.class);
                     List<?> services = exchange.getProperty("serviceList", List.class);
@@ -609,7 +612,7 @@ public class OrderSagaRoute extends RouteBuilder {
                     .to("direct:sagaComplete")
             .end();
 
-        // 呼叫單一服務
+        // 呼叫單一服務（含 Circuit Breaker 檢查）
         from("direct:callService")
             .routeId("call-service")
             .process(exchange -> {
@@ -618,35 +621,59 @@ public class OrderSagaRoute extends RouteBuilder {
                 ServiceConfig config = services.get(index);
                 
                 String txId = exchange.getProperty("txId", String.class);
-                String orderId = exchange.getIn().getHeader("orderId", String.class);
+                String orderId = exchange.getProperty("orderId", String.class);
                 
                 exchange.setProperty("currentService", config.getName());
                 exchange.setProperty("notifyUrl", config.getNotifyUrl());
                 
-                // 記錄 U 狀態
-                transactionLogPort.recordStatus(txId, config.getName(), "U", null);
+                // 檢查 Circuit Breaker 狀態
+                CircuitBreaker.State cbState = serviceCircuitBreaker.getState(config.getName());
+                if (cbState == CircuitBreaker.State.OPEN) {
+                    // 直接標記失敗
+                    transactionLogPort.recordStatus(txId, config.getName(), 
+                        TransactionStatus.Fail, "Circuit breaker is OPEN");
+                    webSocketPort.sendStatus(txId, "FAILED", config.getName(),
+                        "服務不可用 (Circuit Breaker Open)");
+                    exchange.setProperty("serviceFailed", true);
+                    return;
+                }
+                
+                // 記錄 Pending 狀態
+                transactionLogPort.recordStatus(txId, config.getName(), 
+                    TransactionStatus.Pending, null);
                 
                 // 推送 WebSocket
                 webSocketPort.sendStatus(txId, "PROCESSING", config.getName(), 
                     "正在處理: " + config.getName());
             })
-            .toD("${exchangeProperty.notifyUrl}")
-            .process(exchange -> {
-                String txId = exchange.getProperty("txId", String.class);
-                String serviceName = exchange.getProperty("currentService", String.class);
-                int index = exchange.getProperty("serviceIndex", Integer.class);
-                
-                // 記錄 S 狀態
-                transactionLogPort.recordStatus(txId, serviceName, "S", null);
-                
-                // 推送 WebSocket
-                webSocketPort.sendStatus(txId, "PROCESSING", serviceName, 
-                    serviceName + " 處理成功");
-                
-                // 移動到下一個服務
-                exchange.setProperty("serviceIndex", index + 1);
-            })
-            .to("direct:processNextService");
+            .choice()
+                .when(simple("${exchangeProperty.serviceFailed} == true"))
+                    .to("direct:processNextService")
+                .otherwise()
+                    .toD("${exchangeProperty.notifyUrl}")
+                    .process(exchange -> {
+                        String txId = exchange.getProperty("txId", String.class);
+                        String serviceName = exchange.getProperty("currentService", String.class);
+                        int index = exchange.getProperty("serviceIndex", Integer.class);
+                        
+                        // 記錄 Success 狀態
+                        transactionLogPort.recordStatus(txId, serviceName, 
+                            TransactionStatus.Success, null);
+                        
+                        // 推送 WebSocket
+                        webSocketPort.sendStatus(txId, "PROCESSING", serviceName, 
+                            serviceName + " 處理成功");
+                        
+                        // 移動到下一個服務
+                        exchange.setProperty("serviceIndex", index + 1);
+                    })
+                    .to("direct:processNextService")
+            .end();
+
+        // 觸發回滾
+        from("direct:triggerRollback")
+            .routeId("trigger-rollback")
+            .to("direct:rollback");
 
         // Saga 完成
         from("direct:sagaComplete")
@@ -682,7 +709,7 @@ public class RollbackRoute extends RouteBuilder {
             .process(exchange -> {
                 String txId = exchange.getProperty("txId", String.class);
                 
-                // 取得需回滾的服務（狀態為 S，反向順序）
+                // 取得需回滾的服務（狀態為 Success，反向順序）
                 List<String> successfulServices = 
                     transactionLogPort.findSuccessfulServices(txId);
                 Collections.reverse(successfulServices);
@@ -713,11 +740,16 @@ public class RollbackRoute extends RouteBuilder {
                 int index = exchange.getProperty("rollbackIndex", Integer.class);
                 List<String> services = exchange.getProperty("rollbackServices", List.class);
                 String serviceName = services.get(index);
+                String txId = exchange.getProperty("txId", String.class);
                 
                 ServiceConfig config = sagaConfigService.getServiceConfig(serviceName);
                 exchange.setProperty("currentRollbackService", serviceName);
                 exchange.setProperty("rollbackUrl", config.getRollbackUrl());
                 exchange.setProperty("retryCount", 0);
+                
+                // 記錄 Rollback 狀態
+                transactionLogPort.recordStatus(txId, serviceName, 
+                    TransactionStatus.Rollback, null);
             })
             .to("direct:executeRollback");
 
@@ -730,8 +762,9 @@ public class RollbackRoute extends RouteBuilder {
                     String serviceName = exchange.getProperty("currentRollbackService", String.class);
                     int index = exchange.getProperty("rollbackIndex", Integer.class);
                     
-                    // 記錄 R 狀態
-                    transactionLogPort.recordStatus(txId, serviceName, "R", null);
+                    // 記錄 RollbackDone 狀態
+                    transactionLogPort.recordStatus(txId, serviceName, 
+                        TransactionStatus.RollbackDone, null);
                     
                     webSocketPort.sendStatus(txId, "ROLLING_BACK", serviceName, 
                         serviceName + " 回滾成功");
@@ -746,7 +779,8 @@ public class RollbackRoute extends RouteBuilder {
                     
                     if (retryCount < maxRetries - 1) {
                         exchange.setProperty("retryCount", retryCount + 1);
-                        Thread.sleep(1000 * (retryCount + 1)); // 簡單退避
+                        // 指數退避
+                        Thread.sleep(1000L * (1L << retryCount));
                     } else {
                         // 達到最大重試次數
                         String txId = exchange.getProperty("txId", String.class);
@@ -777,10 +811,6 @@ public class RollbackRoute extends RouteBuilder {
             .routeId("rollback-complete")
             .process(exchange -> {
                 String txId = exchange.getProperty("txId", String.class);
-                
-                // 記錄 D 狀態
-                transactionLogPort.recordStatus(txId, "SAGA", "D", null);
-                
                 webSocketPort.sendStatus(txId, "ROLLED_BACK", null, "交易已回滾完成");
             });
     }
@@ -804,6 +834,7 @@ public class CheckerThreadManager {
     private final TransactionLogPort transactionLogPort;
     private final SagaConfigService sagaConfigService;
     private final ProducerTemplate producerTemplate;
+    private final WebSocketPort webSocketPort;
 
     public void startChecker(String txId, String orderId) {
         TransactionCheckerThread checker = new TransactionCheckerThread(
@@ -811,6 +842,7 @@ public class CheckerThreadManager {
             transactionLogPort, 
             sagaConfigService,
             producerTemplate,
+            webSocketPort,
             this::removeChecker
         );
         activeThreads.put(txId, checker);
@@ -842,6 +874,7 @@ public class TransactionCheckerThread extends Thread {
     private final TransactionLogPort transactionLogPort;
     private final SagaConfigService sagaConfigService;
     private final ProducerTemplate producerTemplate;
+    private final WebSocketPort webSocketPort;
     private final Consumer<String> onComplete;
     
     private volatile boolean running = true;
@@ -851,13 +884,16 @@ public class TransactionCheckerThread extends Thread {
             TransactionLogPort transactionLogPort,
             SagaConfigService sagaConfigService,
             ProducerTemplate producerTemplate,
+            WebSocketPort webSocketPort,
             Consumer<String> onComplete) {
         super("checker-" + txId);
+        setDaemon(true); // 設為 Daemon Thread
         this.txId = txId;
         this.orderId = orderId;
         this.transactionLogPort = transactionLogPort;
         this.sagaConfigService = sagaConfigService;
         this.producerTemplate = producerTemplate;
+        this.webSocketPort = webSocketPort;
         this.onComplete = onComplete;
     }
 
@@ -875,26 +911,28 @@ public class TransactionCheckerThread extends Thread {
                         stopChecker();
                         break;
                         
-                    case HAS_FAILURE:
-                        log.warn("Transaction {} has failure, triggering rollback", txId);
-                        triggerRollback();
-                        stopChecker();
-                        break;
-                        
-                    case HAS_TIMEOUT:
-                        log.warn("Transaction {} has timeout, triggering rollback", txId);
-                        triggerRollback();
-                        stopChecker();
-                        break;
-                        
-                    case DONE:
+                    case ALL_ROLLBACK_DONE:
                         log.info("Transaction {} rollback completed", txId);
                         stopChecker();
                         break;
                         
-                    case ROLLBACK_FAILED:
-                        log.error("Transaction {} rollback failed", txId);
+                    case HAS_ROLLBACK_FAIL:
+                        log.error("Transaction {} has rollback failure", txId);
                         stopChecker();
+                        break;
+                        
+                    case HAS_FAILURE:
+                        log.warn("Transaction {} has failure, triggering rollback", txId);
+                        triggerRollback();
+                        // 不停止，繼續監控回滾進度
+                        Thread.sleep(CHECK_INTERVAL);
+                        break;
+                        
+                    case HAS_TIMEOUT:
+                        log.warn("Transaction {} has timeout, triggering rollback", txId);
+                        markTimeoutAndTriggerRollback();
+                        // 不停止，繼續監控回滾進度
+                        Thread.sleep(CHECK_INTERVAL);
                         break;
                         
                     case IN_PROGRESS:
@@ -907,6 +945,12 @@ public class TransactionCheckerThread extends Thread {
                 break;
             } catch (Exception e) {
                 log.error("Error in checker thread for txId: {}", txId, e);
+                try {
+                    Thread.sleep(CHECK_INTERVAL);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
         
@@ -915,41 +959,51 @@ public class TransactionCheckerThread extends Thread {
     }
 
     private CheckResult checkTransaction() {
+        // 取得該交易的服務快照
+        List<String> participatingServices = sagaConfigService.getServiceSnapshot(txId);
         Map<String, TransactionStatus> latestStatuses = 
             transactionLogPort.getLatestStatuses(txId);
         
-        // 檢查是否有 D 狀態
+        // 檢查是否有 RollbackFail 狀態（終態）
         if (latestStatuses.values().stream()
-                .anyMatch(s -> s == TransactionStatus.DONE)) {
-            return CheckResult.DONE;
+                .anyMatch(s -> s == TransactionStatus.RollbackFail)) {
+            return CheckResult.HAS_ROLLBACK_FAIL;
         }
         
-        // 檢查是否有 RF 狀態
-        if (latestStatuses.values().stream()
-                .anyMatch(s -> s == TransactionStatus.ROLLBACK_FAILED)) {
-            return CheckResult.ROLLBACK_FAILED;
-        }
-        
-        // 檢查是否全部成功
-        List<String> serviceNames = sagaConfigService.getActiveServiceNames();
-        boolean allSuccess = serviceNames.stream()
-            .allMatch(name -> latestStatuses.get(name) == TransactionStatus.SUCCESS);
+        // 檢查是否全部成功（終態）
+        boolean allSuccess = participatingServices.stream()
+            .allMatch(name -> latestStatuses.get(name) == TransactionStatus.Success);
         if (allSuccess) {
             return CheckResult.ALL_SUCCESS;
         }
         
-        // 檢查是否有失敗
-        if (latestStatuses.values().stream()
-                .anyMatch(s -> s == TransactionStatus.FAILED)) {
+        // 檢查是否全部回滾完成（終態）
+        boolean allRollbackDone = participatingServices.stream()
+            .allMatch(name -> {
+                TransactionStatus status = latestStatuses.get(name);
+                return status == TransactionStatus.RollbackDone 
+                    || status == TransactionStatus.Skipped;
+            });
+        if (allRollbackDone) {
+            return CheckResult.ALL_ROLLBACK_DONE;
+        }
+        
+        // 檢查是否有失敗（需觸發回滾）
+        boolean hasFail = latestStatuses.values().stream()
+            .anyMatch(s -> s == TransactionStatus.Fail);
+        boolean hasRollbackInProgress = latestStatuses.values().stream()
+            .anyMatch(s -> s == TransactionStatus.Rollback);
+        
+        if (hasFail && !hasRollbackInProgress) {
             return CheckResult.HAS_FAILURE;
         }
         
         // 檢查是否有超時
         Map<String, Integer> timeouts = sagaConfigService.getActiveTimeouts();
         for (Map.Entry<String, TransactionStatus> entry : latestStatuses.entrySet()) {
-            if (entry.getValue() == TransactionStatus.UNCOMMITTED) {
+            if (entry.getValue() == TransactionStatus.Pending) {
                 LocalDateTime createdAt = transactionLogPort
-                    .getStatusCreatedAt(txId, entry.getKey(), TransactionStatus.UNCOMMITTED);
+                    .getStatusCreatedAt(txId, entry.getKey(), TransactionStatus.Pending);
                 int timeout = timeouts.getOrDefault(entry.getKey(), 60);
                 
                 if (createdAt.plusSeconds(timeout).isBefore(LocalDateTime.now())) {
@@ -962,11 +1016,32 @@ public class TransactionCheckerThread extends Thread {
     }
 
     private void triggerRollback() {
-        producerTemplate.sendBodyAndHeader(
-            "direct:rollback", 
-            null, 
-            "txId", txId
-        );
+        Map<String, Object> headers = Map.of("txId", txId, "orderId", orderId);
+        producerTemplate.sendBodyAndHeaders("direct:rollback", null, headers);
+    }
+
+    private void markTimeoutAndTriggerRollback() {
+        // 標記超時的服務為 Fail
+        Map<String, TransactionStatus> latestStatuses = 
+            transactionLogPort.getLatestStatuses(txId);
+        Map<String, Integer> timeouts = sagaConfigService.getActiveTimeouts();
+        
+        for (Map.Entry<String, TransactionStatus> entry : latestStatuses.entrySet()) {
+            if (entry.getValue() == TransactionStatus.Pending) {
+                LocalDateTime createdAt = transactionLogPort
+                    .getStatusCreatedAt(txId, entry.getKey(), TransactionStatus.Pending);
+                int timeout = timeouts.getOrDefault(entry.getKey(), 60);
+                
+                if (createdAt.plusSeconds(timeout).isBefore(LocalDateTime.now())) {
+                    transactionLogPort.recordStatus(txId, entry.getKey(), 
+                        TransactionStatus.Fail, "Timeout after " + timeout + " seconds");
+                    webSocketPort.sendStatus(txId, "FAILED", entry.getKey(), 
+                        entry.getKey() + " 超時");
+                }
+            }
+        }
+        
+        triggerRollback();
     }
 
     public void stopChecker() {
@@ -974,317 +1049,329 @@ public class TransactionCheckerThread extends Thread {
     }
 
     private enum CheckResult {
-        ALL_SUCCESS,
-        HAS_FAILURE,
-        HAS_TIMEOUT,
-        DONE,
-        ROLLBACK_FAILED,
-        IN_PROGRESS
+        ALL_SUCCESS,           // 終態：全部成功
+        ALL_ROLLBACK_DONE,     // 終態：全部回滾完成
+        HAS_ROLLBACK_FAIL,     // 終態：有回滾失敗
+        HAS_FAILURE,           // 有失敗，需觸發回滾
+        HAS_TIMEOUT,           // 有超時，需觸發回滾
+        IN_PROGRESS            // 進行中，繼續監控
     }
 }
 ```
 
 ---
 
-## 7. WebSocket 實作
+## 7. 交易查詢 API 實作
 
-### 7.1 WebSocket Config
+### 7.1 Transaction Query Service
 
 ```java
-@Configuration
-@EnableWebSocket
-public class WebSocketConfig implements WebSocketConfigurer {
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class TransactionQueryService implements TransactionQueryUseCase {
 
-    @Autowired
-    private OrderWebSocketHandler orderWebSocketHandler;
+    private final TransactionLogRepository transactionLogRepository;
+    private final TransactionServiceSnapshotRepository snapshotRepository;
 
     @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(orderWebSocketHandler, "/ws/orders/{txId}")
-                .setAllowedOrigins("*");
+    public TransactionQueryResponse queryByOrderId(String orderId) {
+        // 查詢該 Order ID 的所有 TxID
+        List<String> txIds = transactionLogRepository.findDistinctTxIdsByOrderId(orderId);
+        
+        List<TransactionDetail> transactions = txIds.stream()
+            .map(this::buildTransactionDetail)
+            .collect(Collectors.toList());
+        
+        return TransactionQueryResponse.builder()
+            .orderId(orderId)
+            .transactions(transactions)
+            .build();
+    }
+
+    @Override
+    public TransactionDetail queryByTxId(String txId) {
+        return buildTransactionDetail(txId);
+    }
+
+    private TransactionDetail buildTransactionDetail(String txId) {
+        // 取得各服務最新狀態
+        List<TransactionLogEntity> latestLogs = 
+            transactionLogRepository.findLatestByTxId(txId);
+        
+        List<ServiceStatus> serviceStatuses = latestLogs.stream()
+            .map(log -> ServiceStatus.builder()
+                .name(log.getServiceName())
+                .status(log.getStatus())
+                .updatedAt(log.getCreatedAt())
+                .errorMessage(log.getErrorMessage())
+                .build())
+            .collect(Collectors.toList());
+        
+        // 計算整體狀態
+        String overallStatus = calculateOverallStatus(serviceStatuses);
+        
+        // 取得 Order ID
+        String orderId = latestLogs.isEmpty() ? null : latestLogs.get(0).getOrderId();
+        
+        // 取得建立時間
+        LocalDateTime createdAt = transactionLogRepository
+            .findFirstByTxIdOrderByCreatedAtAsc(txId)
+            .map(TransactionLogEntity::getCreatedAt)
+            .orElse(null);
+        
+        return TransactionDetail.builder()
+            .txId(txId)
+            .orderId(orderId)
+            .createdAt(createdAt)
+            .services(serviceStatuses)
+            .overallStatus(overallStatus)
+            .build();
+    }
+
+    private String calculateOverallStatus(List<ServiceStatus> serviceStatuses) {
+        Set<String> statuses = serviceStatuses.stream()
+            .map(ServiceStatus::getStatus)
+            .collect(Collectors.toSet());
+        
+        if (statuses.contains("RollbackFail")) {
+            return "RollbackFailed";
+        }
+        if (statuses.stream().allMatch(s -> s.equals("Success"))) {
+            return "Completed";
+        }
+        if (statuses.stream().allMatch(s -> 
+                s.equals("RollbackDone") || s.equals("Skipped"))) {
+            return "RolledBack";
+        }
+        if (statuses.contains("Rollback")) {
+            return "RollingBack";
+        }
+        if (statuses.contains("Fail")) {
+            return "Failed";
+        }
+        return "Processing";
     }
 }
 ```
 
-### 7.2 WebSocket Handler
+### 7.2 Transaction Controller
 
 ```java
-@Component
-@Slf4j
-public class OrderWebSocketHandler extends TextWebSocketHandler implements WebSocketPort {
+@RestController
+@RequestMapping("/api/v1/transactions")
+@RequiredArgsConstructor
+@Tag(name = "Transaction", description = "交易查詢 API")
+public class TransactionController {
 
-    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper;
+    private final TransactionQueryUseCase transactionQueryUseCase;
 
-    public OrderWebSocketHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        String txId = extractTxId(session);
-        sessions.put(txId, session);
-        log.info("WebSocket connected for txId: {}", txId);
-    }
-
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String txId = extractTxId(session);
-        sessions.remove(txId);
-        log.info("WebSocket disconnected for txId: {}", txId);
-    }
-
-    @Override
-    public void sendStatus(String txId, String status, String currentStep, String message) {
-        WebSocketSession session = sessions.get(txId);
-        if (session != null && session.isOpen()) {
-            try {
-                WebSocketMessage wsMessage = new WebSocketMessage(
-                    txId, null, status, currentStep, message, LocalDateTime.now()
-                );
-                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(wsMessage)));
-            } catch (Exception e) {
-                log.error("Failed to send WebSocket message for txId: {}", txId, e);
-            }
+    @GetMapping
+    @Operation(summary = "查詢交易狀態",
+        description = "透過 orderId 或 txId 查詢交易狀態（二擇一）")
+    public ResponseEntity<?> queryTransaction(
+            @RequestParam(required = false) String orderId,
+            @RequestParam(required = false) String txId) {
+        
+        if (orderId != null && txId != null) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "請只提供 orderId 或 txId 其中之一"));
+        }
+        
+        if (orderId == null && txId == null) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "請提供 orderId 或 txId"));
+        }
+        
+        if (orderId != null) {
+            TransactionQueryResponse response = 
+                transactionQueryUseCase.queryByOrderId(orderId);
+            return ResponseEntity.ok(response);
+        } else {
+            TransactionDetail detail = 
+                transactionQueryUseCase.queryByTxId(txId);
+            return ResponseEntity.ok(detail);
         }
     }
-
-    private String extractTxId(WebSocketSession session) {
-        String path = session.getUri().getPath();
-        return path.substring(path.lastIndexOf('/') + 1);
-    }
-}
-
-// WebSocketMessage DTO
-@Data
-@AllArgsConstructor
-public class WebSocketMessage {
-    private String txId;
-    private String orderId;
-    private String status;
-    private String currentStep;
-    private String message;
-    private LocalDateTime timestamp;
 }
 ```
 
 ---
 
-## 8. Saga 恢復機制
+## 8. 服務管理 API 實作
 
-### 8.1 Recovery Runner
-
-```java
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class SagaRecoveryRunner implements ApplicationRunner {
-
-    private final TransactionLogPort transactionLogPort;
-    private final CheckerThreadManager checkerThreadManager;
-
-    @Override
-    public void run(ApplicationArguments args) {
-        log.info("Starting Saga recovery...");
-        
-        List<UnfinishedTransaction> unfinishedTxs = 
-            transactionLogPort.findUnfinishedTransactions();
-        
-        log.info("Found {} unfinished transactions", unfinishedTxs.size());
-        
-        for (UnfinishedTransaction tx : unfinishedTxs) {
-            log.info("Recovering transaction: {}", tx.getTxId());
-            checkerThreadManager.startChecker(tx.getTxId(), tx.getOrderId());
-        }
-        
-        log.info("Saga recovery completed");
-    }
-}
-```
-
----
-
-## 9. Email 通知實作
-
-### 9.1 Notification Port
-
-```java
-public interface NotificationPort {
-    void sendRollbackFailedNotification(String txId, String serviceName, String errorMessage);
-}
-```
-
-### 9.2 Mock Email Adapter（開發階段）
-
-```java
-@Component
-@Profile("dev")
-@Slf4j
-public class MockEmailNotificationAdapter implements NotificationPort {
-
-    @Override
-    public void sendRollbackFailedNotification(String txId, String serviceName, 
-            String errorMessage) {
-        log.warn("=== [MOCK EMAIL] ===");
-        log.warn("To: admin@example.com");
-        log.warn("Subject: [ALERT] Saga Rollback Failed - {}", txId);
-        log.warn("Body: ");
-        log.warn("  Transaction ID: {}", txId);
-        log.warn("  Failed Service: {}", serviceName);
-        log.warn("  Error: {}", errorMessage);
-        log.warn("  Action Required: Manual intervention needed");
-        log.warn("=== [END MOCK EMAIL] ===");
-    }
-}
-```
-
-### 9.3 Real Email Adapter（生產環境）
-
-```java
-@Component
-@Profile("prod")
-@RequiredArgsConstructor
-public class EmailNotificationAdapter implements NotificationPort {
-
-    private final JavaMailSender mailSender;
-    
-    @Value("${notification.email.to}")
-    private String toAddress;
-    
-    @Value("${notification.email.from}")
-    private String fromAddress;
-
-    @Override
-    public void sendRollbackFailedNotification(String txId, String serviceName, 
-            String errorMessage) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toAddress);
-        message.setFrom(fromAddress);
-        message.setSubject("[ALERT] Saga Rollback Failed - " + txId);
-        message.setText(String.format(
-            "Transaction ID: %s%n" +
-            "Failed Service: %s%n" +
-            "Error: %s%n" +
-            "Action Required: Manual intervention needed",
-            txId, serviceName, errorMessage
-        ));
-        mailSender.send(message);
-    }
-}
-```
-
----
-
-## 10. 管理 API 實作
-
-### 10.1 Saga Config Service
+### 8.1 Service Management Service
 
 ```java
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class SagaConfigService implements SagaConfigUseCase {
+public class ServiceManagementService implements ServiceManagementUseCase {
 
     private final SagaConfigRepository configRepository;
+    private final ObjectMapper objectMapper;
     
     // 記憶體快取
-    private volatile List<ServiceConfig> activeServiceOrder;
-    private volatile Map<String, Integer> activeTimeouts;
+    private volatile List<ServiceConfig> activeServices;
+    private volatile List<ServiceConfig> pendingAddedServices = new ArrayList<>();
+    private volatile Set<String> pendingRemovedServices = new HashSet<>();
 
     @PostConstruct
-    public void loadActiveConfig() {
-        reloadServiceOrder();
-        reloadTimeouts();
+    public void loadActiveServices() {
+        reloadActiveServices();
     }
 
     @Override
-    public List<ServiceConfig> getActiveServiceOrder() {
-        return activeServiceOrder;
+    public ServiceListResponse getServices() {
+        return ServiceListResponse.builder()
+            .active(activeServices)
+            .pending(PendingChanges.builder()
+                .added(pendingAddedServices)
+                .removed(new ArrayList<>(pendingRemovedServices))
+                .build())
+            .build();
     }
 
     @Override
-    public Map<String, Integer> getActiveTimeouts() {
-        return activeTimeouts;
+    public void addService(ServiceRegistrationRequest request) {
+        // 驗證服務名稱不重複
+        boolean exists = activeServices.stream()
+            .anyMatch(s -> s.getName().equals(request.getName()));
+        boolean pendingExists = pendingAddedServices.stream()
+            .anyMatch(s -> s.getName().equals(request.getName()));
+        
+        if (exists || pendingExists) {
+            throw new IllegalArgumentException("Service already exists: " + request.getName());
+        }
+        
+        ServiceConfig newService = ServiceConfig.builder()
+            .name(request.getName())
+            .notifyUrl(request.getNotifyUrl())
+            .rollbackUrl(request.getRollbackUrl())
+            .timeout(request.getTimeout())
+            .order(request.getOrder())
+            .build();
+        
+        pendingAddedServices.add(newService);
+        savePendingChanges();
     }
 
     @Override
-    public void updateServiceOrder(List<ServiceConfig> services) {
+    public void removeService(String serviceName) {
+        // 驗證服務存在
+        boolean exists = activeServices.stream()
+            .anyMatch(s -> s.getName().equals(serviceName));
+        
+        if (!exists) {
+            throw new IllegalArgumentException("Service not found: " + serviceName);
+        }
+        
+        // 從待新增中移除（如果有的話）
+        pendingAddedServices.removeIf(s -> s.getName().equals(serviceName));
+        
+        // 加入待移除
+        pendingRemovedServices.add(serviceName);
+        savePendingChanges();
+    }
+
+    @Override
+    public void applyChanges() {
+        // 計算新的服務清單
+        List<ServiceConfig> newServices = new ArrayList<>(activeServices);
+        
+        // 移除
+        newServices.removeIf(s -> pendingRemovedServices.contains(s.getName()));
+        
+        // 新增
+        newServices.addAll(pendingAddedServices);
+        
+        // 依 order 排序
+        newServices.sort(Comparator.comparingInt(ServiceConfig::getOrder));
+        
+        // 儲存並設為 active
         SagaConfigEntity config = new SagaConfigEntity();
-        config.setConfigType("SERVICE_ORDER");
-        config.setConfigKey("pending");
-        config.setConfigValue(toJson(services));
-        config.setIsActive(false);
-        config.setIsPending(true);
+        config.setConfigType("SERVICES");
+        config.setConfigKey("active");
+        config.setConfigValue(toJson(newServices));
+        config.setIsActive(true);
+        config.setIsPending(false);
+        
+        configRepository.deactivateByType("SERVICES");
         configRepository.save(config);
+        
+        // 清除待變更
+        pendingAddedServices.clear();
+        pendingRemovedServices.clear();
+        configRepository.deletePendingByType("SERVICES");
+        
+        // 重新載入
+        reloadActiveServices();
     }
 
-    @Override
-    public void applyServiceOrder() {
-        // 將 pending 設為 active
-        configRepository.deactivateByType("SERVICE_ORDER");
-        configRepository.activatePendingByType("SERVICE_ORDER");
-        reloadServiceOrder();
-    }
-
-    @Override
-    public void updateTimeouts(Map<String, Integer> timeouts) {
-        SagaConfigEntity config = new SagaConfigEntity();
-        config.setConfigType("TIMEOUT");
-        config.setConfigKey("pending");
-        config.setConfigValue(toJson(timeouts));
-        config.setIsActive(false);
-        config.setIsPending(true);
-        configRepository.save(config);
-    }
-
-    @Override
-    public void applyTimeouts() {
-        configRepository.deactivateByType("TIMEOUT");
-        configRepository.activatePendingByType("TIMEOUT");
-        reloadTimeouts();
-    }
-
-    private void reloadServiceOrder() {
+    private void reloadActiveServices() {
         Optional<SagaConfigEntity> config = 
-            configRepository.findByConfigTypeAndIsActiveTrue("SERVICE_ORDER");
-        activeServiceOrder = config
+            configRepository.findByConfigTypeAndIsActiveTrue("SERVICES");
+        activeServices = config
             .map(c -> fromJson(c.getConfigValue(), new TypeReference<List<ServiceConfig>>(){}))
-            .orElse(getDefaultServiceOrder());
+            .orElse(getDefaultServices());
     }
 
-    private void reloadTimeouts() {
-        Optional<SagaConfigEntity> config = 
-            configRepository.findByConfigTypeAndIsActiveTrue("TIMEOUT");
-        activeTimeouts = config
-            .map(c -> fromJson(c.getConfigValue(), new TypeReference<Map<String, Integer>>(){}))
-            .orElse(getDefaultTimeouts());
+    private void savePendingChanges() {
+        PendingChanges changes = PendingChanges.builder()
+            .added(pendingAddedServices)
+            .removed(new ArrayList<>(pendingRemovedServices))
+            .build();
+        
+        configRepository.deletePendingByType("SERVICES");
+        
+        SagaConfigEntity config = new SagaConfigEntity();
+        config.setConfigType("SERVICES");
+        config.setConfigKey("pending");
+        config.setConfigValue(toJson(changes));
+        config.setIsActive(false);
+        config.setIsPending(true);
+        configRepository.save(config);
     }
 
-    private List<ServiceConfig> getDefaultServiceOrder() {
+    private List<ServiceConfig> getDefaultServices() {
         return List.of(
-            new ServiceConfig(1, "CREDIT_CARD", 
-                "http://localhost:8081/api/v1/credit-card/notify",
-                "http://localhost:8081/api/v1/credit-card/rollback"),
-            new ServiceConfig(2, "INVENTORY",
-                "http://localhost:8082/api/v1/inventory/notify",
-                "http://localhost:8082/api/v1/inventory/rollback"),
-            new ServiceConfig(3, "LOGISTICS",
-                "http://localhost:8083/api/v1/logistics/notify",
-                "http://localhost:8083/api/v1/logistics/rollback")
+            ServiceConfig.builder()
+                .order(1).name("CREDIT_CARD")
+                .notifyUrl("http://localhost:8081/api/v1/credit-card/notify")
+                .rollbackUrl("http://localhost:8081/api/v1/credit-card/rollback")
+                .timeout(30).build(),
+            ServiceConfig.builder()
+                .order(2).name("INVENTORY")
+                .notifyUrl("http://localhost:8082/api/v1/inventory/notify")
+                .rollbackUrl("http://localhost:8082/api/v1/inventory/rollback")
+                .timeout(60).build(),
+            ServiceConfig.builder()
+                .order(3).name("LOGISTICS")
+                .notifyUrl("http://localhost:8083/api/v1/logistics/notify")
+                .rollbackUrl("http://localhost:8083/api/v1/logistics/rollback")
+                .timeout(120).build()
         );
     }
-
-    private Map<String, Integer> getDefaultTimeouts() {
-        return Map.of(
-            "CREDIT_CARD", 30,
-            "INVENTORY", 60,
-            "LOGISTICS", 120
-        );
+    
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON serialization failed", e);
+        }
+    }
+    
+    private <T> T fromJson(String json, TypeReference<T> typeRef) {
+        try {
+            return objectMapper.readValue(json, typeRef);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON deserialization failed", e);
+        }
     }
 }
 ```
 
-### 10.2 Admin Controller
+### 8.2 Admin Controller（完整版）
 
 ```java
 @RestController
@@ -1294,6 +1381,7 @@ public class SagaConfigService implements SagaConfigUseCase {
 public class AdminController {
 
     private final SagaConfigUseCase sagaConfigUseCase;
+    private final ServiceManagementUseCase serviceManagementUseCase;
 
     // === Service Order ===
     
@@ -1346,14 +1434,45 @@ public class AdminController {
         sagaConfigUseCase.applyTimeouts();
         return ResponseEntity.ok().build();
     }
+
+    // === Services (參與服務管理) ===
+    
+    @GetMapping("/services")
+    @Operation(summary = "查詢參與服務清單")
+    public ResponseEntity<ServiceListResponse> getServices() {
+        return ResponseEntity.ok(serviceManagementUseCase.getServices());
+    }
+
+    @PostMapping("/services")
+    @Operation(summary = "加入微服務（暫存）")
+    public ResponseEntity<Void> addService(
+            @RequestBody @Valid ServiceRegistrationRequest request) {
+        serviceManagementUseCase.addService(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/services/{serviceName}")
+    @Operation(summary = "移出微服務（暫存）")
+    public ResponseEntity<Void> removeService(
+            @PathVariable String serviceName) {
+        serviceManagementUseCase.removeService(serviceName);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/services/apply")
+    @Operation(summary = "觸發參與服務變更生效")
+    public ResponseEntity<Void> applyServiceChanges() {
+        serviceManagementUseCase.applyChanges();
+        return ResponseEntity.ok().build();
+    }
 }
 ```
 
 ---
 
-## 11. 可觀測性實作
+## 9. 可觀測性實作
 
-### 11.1 Saga Metrics
+### 9.1 Saga Metrics（含 Circuit Breaker）
 
 ```java
 @Component
@@ -1361,6 +1480,7 @@ public class AdminController {
 public class SagaMetrics {
 
     private final MeterRegistry meterRegistry;
+    private final ServiceCircuitBreaker serviceCircuitBreaker;
     
     private Counter sagaStartedCounter;
     private Counter sagaCompletedCounter;
@@ -1394,56 +1514,42 @@ public class SagaMetrics {
         sagaDurationTimer = Timer.builder("saga.duration")
             .description("Duration of saga execution")
             .register(meterRegistry);
+        
+        // Circuit Breaker Gauges
+        registerCircuitBreakerMetrics("CREDIT_CARD");
+        registerCircuitBreakerMetrics("INVENTORY");
+        registerCircuitBreakerMetrics("LOGISTICS");
     }
 
-    public void recordSagaStarted() {
-        sagaStartedCounter.increment();
+    private void registerCircuitBreakerMetrics(String serviceName) {
+        Gauge.builder("circuitbreaker.state", serviceCircuitBreaker, 
+                cb -> cb.getState(serviceName).ordinal())
+            .tag("service", serviceName)
+            .description("Circuit breaker state (0=CLOSED, 1=OPEN, 2=HALF_OPEN)")
+            .register(meterRegistry);
+        
+        Gauge.builder("circuitbreaker.failure_rate", serviceCircuitBreaker,
+                cb -> cb.getMetrics(serviceName).getFailureRate())
+            .tag("service", serviceName)
+            .description("Circuit breaker failure rate")
+            .register(meterRegistry);
     }
 
-    public void recordSagaCompleted() {
-        sagaCompletedCounter.increment();
-    }
-
-    public void recordSagaFailed() {
-        sagaFailedCounter.increment();
-    }
-
-    public void recordSagaRolledBack() {
-        sagaRolledBackCounter.increment();
-    }
-
-    public void recordSagaRollbackFailed() {
-        sagaRollbackFailedCounter.increment();
-    }
-
-    public Timer.Sample startTimer() {
-        return Timer.start(meterRegistry);
-    }
-
-    public void stopTimer(Timer.Sample sample) {
-        sample.stop(sagaDurationTimer);
-    }
-}
-```
-
-### 11.2 Tracing Config
-
-```java
-@Configuration
-public class TracingConfig {
-
-    @Bean
-    public ObservationRegistry observationRegistry() {
-        return ObservationRegistry.create();
-    }
+    public void recordSagaStarted() { sagaStartedCounter.increment(); }
+    public void recordSagaCompleted() { sagaCompletedCounter.increment(); }
+    public void recordSagaFailed() { sagaFailedCounter.increment(); }
+    public void recordSagaRolledBack() { sagaRolledBackCounter.increment(); }
+    public void recordSagaRollbackFailed() { sagaRollbackFailedCounter.increment(); }
+    public Timer.Sample startTimer() { return Timer.start(meterRegistry); }
+    public void stopTimer(Timer.Sample sample) { sample.stop(sagaDurationTimer); }
 }
 ```
 
 ---
 
-## 12. 設定檔
+## 10. 設定檔
 
-### 12.1 application.yml
+### 10.1 application.yml
 
 ```yaml
 server:
@@ -1486,6 +1592,28 @@ saga:
       inventory: 60
       logistics: 120
 
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      CREDIT_CARD:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 10s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+      INVENTORY:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+      LOGISTICS:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+
 # Service URLs
 service:
   creditcard:
@@ -1527,21 +1655,9 @@ tracing:
 
 ---
 
-## 13. Gradle 建置設定
+## 11. Gradle 建置設定
 
-### 13.1 settings.gradle.kts
-
-```kotlin
-rootProject.name = "ecommerce-saga"
-
-include("common")
-include("order-service")
-include("credit-card-service")
-include("inventory-service")
-include("logistics-service")
-```
-
-### 13.2 Root build.gradle.kts
+### 11.1 Root build.gradle.kts
 
 ```kotlin
 plugins {
@@ -1580,6 +1696,10 @@ subprojects {
         implementation("org.apache.camel.springboot:camel-spring-boot-starter:4.3.0")
         implementation("org.apache.camel.springboot:camel-http-starter:4.3.0")
         
+        // Resilience4j (Circuit Breaker)
+        implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+        implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
+        
         // Database
         runtimeOnly("com.h2database:h2")
         
@@ -1609,7 +1729,7 @@ subprojects {
 
 ---
 
-## 14. 開發任務清單
+## 12. 開發任務清單
 
 ### Phase 1: 基礎建設 (2 天)
 
@@ -1617,7 +1737,7 @@ subprojects {
 |------|------|--------|
 | 1.1 | 建立 Monorepo 專案結構 | P0 |
 | 1.2 | 設定 Gradle 多模組建置 | P0 |
-| 1.3 | 建立 common 模組 | P0 |
+| 1.3 | 建立 common 模組（含新狀態碼） | P0 |
 | 1.4 | 設定 H2 資料庫與 schema | P0 |
 
 ### Phase 2: 核心服務 (3 天)
@@ -1627,42 +1747,45 @@ subprojects {
 | 2.1 | 實作 TransactionLog Entity & Repository | P0 |
 | 2.2 | 實作 Outbox Pattern（寫入 + Poller） | P0 |
 | 2.3 | 實作 Order Service 六角形架構 | P0 |
-| 2.4 | 實作 Credit Card Service（含冪等 rollback） | P1 |
-| 2.5 | 實作 Inventory Service（含冪等 rollback） | P1 |
-| 2.6 | 實作 Logistics Service（含冪等 rollback） | P1 |
+| 2.4 | 實作交易查詢 Service & Controller | P0 |
+| 2.5 | 實作 Credit Card Service（含冪等 rollback） | P1 |
+| 2.6 | 實作 Inventory Service（含冪等 rollback） | P1 |
+| 2.7 | 實作 Logistics Service（含冪等 rollback） | P1 |
 
-### Phase 3: Camel Route (2 天)
+### Phase 3: Circuit Breaker & Camel Route (3 天)
 
 | Task | 說明 | 優先序 |
 |------|------|--------|
-| 3.1 | 實作動態 OrderSagaRoute | P0 |
-| 3.2 | 實作 RollbackRoute（含重試機制） | P0 |
-| 3.3 | 實作各 Processor | P0 |
-| 3.4 | 整合測試 Camel Route | P0 |
+| 3.1 | 設定 Resilience4j Circuit Breaker | P0 |
+| 3.2 | 實作 ServiceCircuitBreaker Wrapper | P0 |
+| 3.3 | 實作動態 OrderSagaRoute（含 CB 整合） | P0 |
+| 3.4 | 實作 RollbackRoute（含重試機制） | P0 |
+| 3.5 | 整合測試 Camel Route | P0 |
 
 ### Phase 4: Checker Thread & WebSocket (2 天)
 
 | Task | 說明 | 優先序 |
 |------|------|--------|
 | 4.1 | 實作 CheckerThreadManager | P0 |
-| 4.2 | 實作 TransactionCheckerThread | P0 |
+| 4.2 | 實作 TransactionCheckerThread（新終態邏輯） | P0 |
 | 4.3 | 實作 WebSocket Handler | P0 |
 | 4.4 | 測試超時與回滾機制 | P0 |
 
-### Phase 5: 管理 API & 恢復機制 (2 天)
+### Phase 5: 管理 API & 恢復機制 (3 天)
 
 | Task | 說明 | 優先序 |
 |------|------|--------|
 | 5.1 | 實作 SagaConfigService | P0 |
-| 5.2 | 實作 AdminController（6 支 API） | P0 |
-| 5.3 | 實作 SagaRecoveryRunner | P0 |
-| 5.4 | 實作 Email 通知（Mock + Real） | P1 |
+| 5.2 | 實作 ServiceManagementService | P0 |
+| 5.3 | 實作 AdminController（10 支 API） | P0 |
+| 5.4 | 實作 SagaRecoveryRunner | P0 |
+| 5.5 | 實作 Email 通知（Mock + Real） | P1 |
 
 ### Phase 6: 可觀測性 & 文件 (2 天)
 
 | Task | 說明 | 優先序 |
 |------|------|--------|
-| 6.1 | 實作 SagaMetrics | P1 |
+| 6.1 | 實作 SagaMetrics（含 CB 指標） | P1 |
 | 6.2 | 設定 Tracing | P1 |
 | 6.3 | 設定 Swagger 文件 | P1 |
 | 6.4 | 撰寫 Unit Tests | P0 |
@@ -1671,25 +1794,27 @@ subprojects {
 
 ---
 
-## 15. 附錄
+## 13. 附錄
 
-### 15.1 狀態碼參照
+### 13.1 狀態碼參照
 
-| 狀態碼 | 名稱 | 說明 |
-|--------|------|------|
-| U | Uncommitted | 在途 |
-| S | Success | 成功 |
-| F | Failed | 失敗 |
-| R | Rolled back | 已回滾 |
-| D | Done | 回滾流程完成 |
-| RF | Rollback Failed | 回滾失敗 |
+| 狀態碼 | 說明 | 是否終態 |
+|--------|------|----------|
+| Pending | 已呼叫，等待回應 | 否 |
+| Success | 處理成功 | 是（全部 Success） |
+| Fail | 處理失敗 | 否（需觸發回滾） |
+| Rollback | 回滾中 | 否 |
+| RollbackDone | 回滾完成 | 是（全部 RollbackDone） |
+| RollbackFail | 回滾失敗 | 是（需人工介入） |
+| Skipped | 被跳過 | 是（視同 RollbackDone） |
 
-### 15.2 API Endpoints 總覽
+### 13.2 API Endpoints 總覽
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/v1/orders/confirm` | 確認訂單，啟動 Saga |
-| GET | `/api/v1/transactions/{txId}` | 查詢交易狀態 |
+| GET | `/api/v1/transactions?orderId=xxx` | 透過 Order ID 查詢交易狀態 |
+| GET | `/api/v1/transactions?txId=xxx` | 透過 TxID 查詢交易狀態 |
 | WS | `/ws/orders/{txId}` | WebSocket 狀態推送 |
 | GET | `/api/v1/admin/saga/service-order` | 查詢服務順序 |
 | PUT | `/api/v1/admin/saga/service-order` | 修改服務順序 |
@@ -1697,9 +1822,21 @@ subprojects {
 | GET | `/api/v1/admin/saga/timeout` | 查詢超時設定 |
 | PUT | `/api/v1/admin/saga/timeout` | 修改超時設定 |
 | POST | `/api/v1/admin/saga/timeout/apply` | 觸發超時設定生效 |
+| GET | `/api/v1/admin/saga/services` | 查詢參與服務 |
+| POST | `/api/v1/admin/saga/services` | 加入微服務 |
+| DELETE | `/api/v1/admin/saga/services/{name}` | 移出微服務 |
+| POST | `/api/v1/admin/saga/services/apply` | 觸發服務變更生效 |
 | POST | `/api/v1/credit-card/notify` | 信用卡交易通知 |
 | POST | `/api/v1/credit-card/rollback` | 信用卡交易回滾（冪等） |
 | POST | `/api/v1/inventory/notify` | 倉管預留通知 |
 | POST | `/api/v1/inventory/rollback` | 倉管預留回滾（冪等） |
 | POST | `/api/v1/logistics/notify` | 物流排程通知 |
 | POST | `/api/v1/logistics/rollback` | 物流排程回滾（冪等） |
+
+### 13.3 Circuit Breaker 狀態
+
+| 狀態 | 說明 |
+|------|------|
+| CLOSED | 正常，允許所有呼叫 |
+| OPEN | 熔斷，直接快速失敗 |
+| HALF_OPEN | 半開，允許少量探測呼叫 |

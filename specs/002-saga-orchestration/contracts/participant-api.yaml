@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: Saga Participant Service API
+  description: |
+    API contract for Saga participant services (Credit Card, Inventory, Logistics).
+    All participant services MUST implement these endpoints with idempotent behavior.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081
+    description: Credit Card Service
+  - url: http://localhost:8082
+    description: Inventory Service
+  - url: http://localhost:8083
+    description: Logistics Service
+
+tags:
+  - name: Notify
+    description: Transaction notification endpoint
+  - name: Rollback
+    description: Rollback endpoint (must be idempotent)
+
+paths:
+  /api/v1/{service}/notify:
+    post:
+      tags:
+        - Notify
+      summary: Notify service of transaction
+      description: |
+        Called by the Saga Orchestrator to execute the service's part of the transaction.
+        The service should process the request and return success or failure.
+      operationId: notify
+      parameters:
+        - name: service
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [credit-card, inventory, logistics]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyRequest'
+      responses:
+        '200':
+          description: Transaction processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+        '500':
+          description: Service processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifyResponse'
+
+  /api/v1/{service}/rollback:
+    post:
+      tags:
+        - Rollback
+      summary: Rollback transaction
+      description: |
+        Called by the Saga Orchestrator to rollback a previously successful transaction.
+
+        **IMPORTANT: This endpoint MUST be idempotent.**
+        - If the transaction exists: perform rollback and return success
+        - If the transaction does NOT exist: return success (already rolled back or never processed)
+        - Never return failure for non-existent transactions
+      operationId: rollback
+      parameters:
+        - name: service
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [credit-card, inventory, logistics]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RollbackRequest'
+      responses:
+        '200':
+          description: Rollback successful (or no action needed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+        '500':
+          description: Rollback failed (will be retried)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+
+components:
+  schemas:
+    NotifyRequest:
+      type: object
+      required:
+        - txId
+        - orderId
+      properties:
+        txId:
+          type: string
+          format: uuid
+          description: Saga transaction identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        orderId:
+          type: string
+          description: Business order identifier
+          example: "ORD-20260101-001"
+        customerId:
+          type: string
+          example: "CUST-001"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        totalAmount:
+          type: number
+          format: decimal
+          example: 36900.00
+        paymentToken:
+          type: string
+          description: Payment authorization token (for credit card service)
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Service-specific metadata
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: decimal
+
+    NotifyResponse:
+      type: object
+      required:
+        - txId
+        - success
+      properties:
+        txId:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+        message:
+          type: string
+          description: Human-readable result message
+        referenceId:
+          type: string
+          description: Service-specific reference (payment ID, reservation ID, etc.)
+        errorCode:
+          type: string
+          description: Error code if success=false
+        errorMessage:
+          type: string
+          description: Detailed error message if success=false
+
+    RollbackRequest:
+      type: object
+      required:
+        - txId
+        - orderId
+      properties:
+        txId:
+          type: string
+          format: uuid
+          description: Saga transaction identifier
+        orderId:
+          type: string
+          description: Business order identifier
+        reason:
+          type: string
+          description: Reason for rollback
+          example: "Inventory service failed"
+
+    RollbackResponse:
+      type: object
+      required:
+        - txId
+        - success
+      properties:
+        txId:
+          type: string
+          format: uuid
+        success:
+          type: boolean
+          description: |
+            Always true for:
+            - Successful rollback
+            - Transaction not found (idempotent behavior)
+
+            Only false for actual rollback failures
+        message:
+          type: string
+          example: "Rollback completed successfully"
+        alreadyRolledBack:
+          type: boolean
+          description: True if transaction was already rolled back or never existed

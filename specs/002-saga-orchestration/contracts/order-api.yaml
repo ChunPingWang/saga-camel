@@ -1,0 +1,248 @@
+openapi: 3.0.3
+info:
+  title: Order Service API
+  description: Saga Orchestrator for E-Commerce Order Processing
+  version: 1.0.0
+  contact:
+    name: E-Commerce Saga Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Order
+    description: Order confirmation and saga initiation
+  - name: Transaction
+    description: Transaction status queries
+  - name: WebSocket
+    description: Real-time status updates
+
+paths:
+  /api/v1/orders/confirm:
+    post:
+      tags:
+        - Order
+      summary: Confirm order and start saga
+      description: |
+        Accepts an order confirmation request, generates a unique TxID,
+        writes to the Outbox, and returns 202 Accepted for async processing.
+      operationId: confirmOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderConfirmRequest'
+      responses:
+        '202':
+          description: Order accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderConfirmResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transactions:
+    get:
+      tags:
+        - Transaction
+      summary: Query transaction status
+      description: Query by orderId OR txId (mutually exclusive)
+      operationId: queryTransaction
+      parameters:
+        - name: orderId
+          in: query
+          schema:
+            type: string
+          description: Business order ID
+        - name: txId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Transaction UUID
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TransactionQueryByOrderResponse'
+                  - $ref: '#/components/schemas/TransactionDetail'
+        '400':
+          description: Must provide exactly one of orderId or txId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction not found
+
+components:
+  schemas:
+    OrderConfirmRequest:
+      type: object
+      required:
+        - orderId
+        - customerId
+        - items
+        - totalAmount
+      properties:
+        orderId:
+          type: string
+          example: "ORD-20260101-001"
+          description: Business order identifier
+        customerId:
+          type: string
+          example: "CUST-001"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        totalAmount:
+          type: number
+          format: decimal
+          example: 36900.00
+        paymentToken:
+          type: string
+          description: Payment authorization token
+
+    OrderItem:
+      type: object
+      required:
+        - productId
+        - quantity
+        - unitPrice
+      properties:
+        productId:
+          type: string
+          example: "IPHONE-15-PRO"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 1
+        unitPrice:
+          type: number
+          format: decimal
+          example: 36900.00
+
+    OrderConfirmResponse:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        orderId:
+          type: string
+          example: "ORD-20260101-001"
+        status:
+          type: string
+          enum: [PROCESSING]
+        message:
+          type: string
+          example: "訂單已受理，處理中"
+        websocketUrl:
+          type: string
+          example: "/ws/orders/550e8400-e29b-41d4-a716-446655440000"
+
+    TransactionQueryByOrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionDetail'
+
+    TransactionDetail:
+      type: object
+      properties:
+        txId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceStatus'
+        overallStatus:
+          type: string
+          enum:
+            - Processing
+            - Completed
+            - Failed
+            - RollingBack
+            - RolledBack
+            - RollbackFailed
+
+    ServiceStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+        status:
+          type: string
+          enum:
+            - Pending
+            - Success
+            - Fail
+            - Rollback
+            - RollbackDone
+            - RollbackFail
+            - Skipped
+        updatedAt:
+          type: string
+          format: date-time
+        errorMessage:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    WebSocketMessage:
+      type: object
+      description: Real-time notification pushed via WebSocket
+      properties:
+        txId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+        status:
+          type: string
+          enum:
+            - PROCESSING
+            - COMPLETED
+            - ROLLING_BACK
+            - ROLLED_BACK
+            - ROLLBACK_FAILED
+        currentStep:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

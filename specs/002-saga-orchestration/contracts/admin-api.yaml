@@ -1,0 +1,309 @@
+openapi: 3.0.3
+info:
+  title: Saga Admin API
+  description: Administrative APIs for Saga Configuration Management
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Service Order
+    description: Service execution order management
+  - name: Timeout
+    description: Service timeout configuration
+  - name: Services
+    description: Participating service management
+
+paths:
+  # ===== Service Order =====
+  /api/v1/admin/saga/service-order:
+    get:
+      tags:
+        - Service Order
+      summary: Query service execution order
+      operationId: getServiceOrder
+      responses:
+        '200':
+          description: Current and pending service order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderResponse'
+
+    put:
+      tags:
+        - Service Order
+      summary: Update service order (pending)
+      description: Updates pending configuration, not yet active
+      operationId: updateServiceOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderRequest'
+      responses:
+        '200':
+          description: Service order updated (pending)
+        '400':
+          description: Invalid configuration
+
+  /api/v1/admin/saga/service-order/apply:
+    post:
+      tags:
+        - Service Order
+      summary: Apply pending service order
+      description: Activates pending configuration for new orders
+      operationId: applyServiceOrder
+      responses:
+        '200':
+          description: Service order applied
+        '400':
+          description: No pending configuration
+
+  # ===== Timeout =====
+  /api/v1/admin/saga/timeout:
+    get:
+      tags:
+        - Timeout
+      summary: Query timeout settings
+      operationId: getTimeout
+      responses:
+        '200':
+          description: Current and pending timeout settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoutResponse'
+
+    put:
+      tags:
+        - Timeout
+      summary: Update timeout settings (pending)
+      operationId: updateTimeout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeoutRequest'
+      responses:
+        '200':
+          description: Timeout settings updated (pending)
+        '400':
+          description: Invalid configuration
+
+  /api/v1/admin/saga/timeout/apply:
+    post:
+      tags:
+        - Timeout
+      summary: Apply pending timeout settings
+      operationId: applyTimeout
+      responses:
+        '200':
+          description: Timeout settings applied
+        '400':
+          description: No pending configuration
+
+  # ===== Services =====
+  /api/v1/admin/saga/services:
+    get:
+      tags:
+        - Services
+      summary: Query participating services
+      operationId: getServices
+      responses:
+        '200':
+          description: Active services and pending changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceListResponse'
+
+    post:
+      tags:
+        - Services
+      summary: Add new service (pending)
+      operationId: addService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceRegistrationRequest'
+      responses:
+        '201':
+          description: Service added (pending)
+        '400':
+          description: Service already exists or invalid configuration
+
+  /api/v1/admin/saga/services/{serviceName}:
+    delete:
+      tags:
+        - Services
+      summary: Remove service (pending)
+      operationId: removeService
+      parameters:
+        - name: serviceName
+          in: path
+          required: true
+          schema:
+            type: string
+          example: LOGISTICS
+      responses:
+        '200':
+          description: Service removal staged (pending)
+        '404':
+          description: Service not found
+
+  /api/v1/admin/saga/services/apply:
+    post:
+      tags:
+        - Services
+      summary: Apply pending service changes
+      operationId: applyServiceChanges
+      responses:
+        '200':
+          description: Service changes applied
+        '400':
+          description: No pending changes
+
+components:
+  schemas:
+    ServiceOrderResponse:
+      type: object
+      properties:
+        active:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+        pending:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+
+    ServiceOrderRequest:
+      type: object
+      required:
+        - services
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderItem'
+
+    ServiceOrderItem:
+      type: object
+      required:
+        - name
+        - order
+      properties:
+        name:
+          type: string
+          enum: [CREDIT_CARD, INVENTORY, LOGISTICS]
+        order:
+          type: integer
+          minimum: 1
+
+    TimeoutResponse:
+      type: object
+      properties:
+        active:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            CREDIT_CARD: 30
+            INVENTORY: 60
+            LOGISTICS: 120
+        pending:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+
+    TimeoutRequest:
+      type: object
+      required:
+        - timeouts
+      properties:
+        timeouts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 1
+          example:
+            CREDIT_CARD: 45
+            INVENTORY: 90
+
+    ServiceListResponse:
+      type: object
+      properties:
+        active:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+        pending:
+          $ref: '#/components/schemas/PendingChanges'
+
+    PendingChanges:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+        removed:
+          type: array
+          items:
+            type: string
+
+    ServiceConfig:
+      type: object
+      properties:
+        order:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        notifyUrl:
+          type: string
+          format: uri
+        rollbackUrl:
+          type: string
+          format: uri
+        timeout:
+          type: integer
+          minimum: 1
+
+    ServiceRegistrationRequest:
+      type: object
+      required:
+        - name
+        - notifyUrl
+        - rollbackUrl
+        - timeout
+        - order
+      properties:
+        name:
+          type: string
+          example: "BONUS_POINT"
+        notifyUrl:
+          type: string
+          format: uri
+          example: "http://localhost:8084/api/v1/bonus-point/notify"
+        rollbackUrl:
+          type: string
+          format: uri
+          example: "http://localhost:8084/api/v1/bonus-point/rollback"
+        timeout:
+          type: integer
+          minimum: 1
+          example: 30
+        order:
+          type: integer
+          minimum: 1
+          example: 2
