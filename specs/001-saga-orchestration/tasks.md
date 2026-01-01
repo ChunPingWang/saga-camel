@@ -345,6 +345,17 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 - [ ] T133 [P] Write BDD acceptance test for rollback scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/RollbackAcceptanceTest.java`
 - [ ] T134 [P] Write BDD acceptance test for timeout scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/TimeoutAcceptanceTest.java`
 
+### Load Testing (SC-002)
+
+- [ ] T135 [P] Add Gatling dependency to `order-service/build.gradle.kts` for load testing
+- [ ] T136 [P] Create Gatling load test for 100 orders/sec in `order-service/src/test/scala/com/ecommerce/order/loadtest/OrderLoadTest.scala`
+- [ ] T137 Run load test and document results in `specs/001-saga-orchestration/load-test-results.md`
+
+### Availability Monitoring (SC-009)
+
+- [ ] T138 [P] Configure Spring Boot Actuator health endpoints with detailed checks in `order-service/src/main/resources/application.yml`
+- [ ] T139 [P] Add availability metric (uptime counter) to `SagaMetrics` in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/SagaMetrics.java`
+
 ---
 
 ## Dependencies & Execution Order
@@ -446,7 +457,7 @@ Task: "T062-T065 [US1] Logistics Service"
 
 | Metric | Count |
 |--------|-------|
-| **Total Tasks** | 134 |
+| **Total Tasks** | 139 |
 | **Phase 1 (Setup)** | 9 |
 | **Phase 2 (Foundational)** | 39 |
 | **US1 (P1)** | 36 |
@@ -455,7 +466,7 @@ Task: "T062-T065 [US1] Logistics Service"
 | **US4 (P4)** | 6 |
 | **US5 (P5)** | 5 |
 | **US6 (P6)** | 7 |
-| **Phase 9 (Polish)** | 9 |
+| **Phase 9 (Polish)** | 14 |
 
 ---
 

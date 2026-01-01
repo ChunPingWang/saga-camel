@@ -198,6 +198,9 @@ As an administrator, I want to configure the service execution order and timeout
 
 - **SC-001**: Customers receive order acknowledgment within 200 milliseconds of confirmation
 - **SC-002**: System processes 100 concurrent orders per second without degradation
+  - Measured using: Gatling load test with 100 virtual users, 60-second sustained load
+  - Degradation threshold: p99 latency > 500ms OR error rate > 0.1%
+  - Test environment: Single instance, H2 embedded database
 - **SC-003**: Real-time notifications are delivered to customers within 1 second of each service completing
 - **SC-004**: 100% of failed transactions are automatically compensated without manual intervention (excluding rollback failures)
 - **SC-005**: System automatically recovers and resumes all incomplete transactions within 30 seconds of restart
@@ -205,6 +208,9 @@ As an administrator, I want to configure the service execution order and timeout
 - **SC-007**: System maintains complete audit trail of all state transitions for 100% of transactions
 - **SC-008**: Service order and timeout changes can be applied without system restart or downtime
 - **SC-009**: System achieves 99.9% availability for order processing
+  - Measurement window: Monthly (30 days)
+  - Allowed downtime: ~43 minutes per month
+  - Exclusions: Scheduled maintenance windows (must be announced 24h in advance)
 - **SC-010**: Single order processing completes within 3 seconds (excluding downstream service response time)
 
 ## Assumptions
