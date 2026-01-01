@@ -453,6 +453,319 @@ sequenceDiagram
 
 ---
 
+## 測試
+
+### 測試框架
+
+| 框架 | 用途 |
+|------|------|
+| JUnit 5 | 單元測試框架 |
+| Mockito | Mock 框架 |
+| Cucumber | BDD 測試框架 |
+| Spring Boot Test | 整合測試 |
+| AssertJ | 斷言函式庫 |
+
+### 執行測試
+
+```bash
+# 執行所有測試
+./gradlew test
+
+# 執行特定服務的測試
+./gradlew :order-service:test
+./gradlew :credit-card-service:test
+./gradlew :inventory-service:test
+./gradlew :logistics-service:test
+
+# 產生測試報告
+./gradlew test jacocoTestReport
+```
+
+### BDD 測試案例
+
+所有 BDD 測試使用繁體中文 Gherkin 語法撰寫，涵蓋正向與反向測試場景。
+
+#### Credit Card Service (信用卡服務)
+
+| 標籤 | 場景 | 說明 |
+|------|------|------|
+| `@positive @happy-path` | 成功處理付款請求 | 驗證有效付款請求能成功處理並返回授權碼 |
+| `@positive @idempotent` | 冪等性 - 重複付款請求返回相同結果 | 驗證相同交易ID的重複請求只處理一次付款 |
+| `@positive @rollback` | 成功退款已付款的交易 | 驗證已付款交易能成功退款 |
+| `@positive @rollback-idempotent` | 冪等性 - 重複退款請求返回相同結果 | 驗證重複退款請求的冪等性處理 |
+| `@negative @no-payment` | 退款不存在的付款 - 無操作 | 驗證對不存在的付款退款時的安全處理 |
+| `@negative @failure-simulation` | 模擬付款失敗 | 驗證付款失敗時的錯誤處理 |
+
+<details>
+<summary>查看完整測試場景 (payment.feature)</summary>
+
+```gherkin
+# language: zh-TW
+@payment
+功能: 信用卡付款處理
+  作為電子商務系統
+  我需要處理信用卡付款
+  以便完成訂單交易
+
+  背景:
+    假設 信用卡服務已啟動
+
+  @positive @happy-path
+  場景: 成功處理付款請求
+    假設 一個有效的付款請求，交易ID為 "550e8400-e29b-41d4-a716-446655440001"
+    當 發送付款通知請求
+    那麼 應該收到成功的付款回應
+    而且 回應應包含授權碼
+
+  @positive @idempotent
+  場景: 冪等性 - 重複付款請求返回相同結果
+    假設 一個有效的付款請求，交易ID為 "550e8400-e29b-41d4-a716-446655440002"
+    當 發送付款通知請求
+    而且 再次發送相同的付款通知請求
+    那麼 兩次回應應該相同
+    而且 應該只處理一次付款
+
+  @positive @rollback
+  場景: 成功退款已付款的交易
+    假設 一個有效的付款請求，交易ID為 "550e8400-e29b-41d4-a716-446655440003"
+    當 發送付款通知請求
+    而且 收到成功的付款回應
+    當 發送退款請求
+    那麼 應該收到成功的退款回應
+    而且 退款訊息應為 "Payment refunded successfully"
+
+  @negative @failure-simulation
+  場景: 模擬付款失敗
+    假設 信用卡服務配置為失敗模式
+    假設 一個有效的付款請求，交易ID為 "550e8400-e29b-41d4-a716-446655440006"
+    當 發送付款通知請求
+    那麼 應該收到失敗的付款回應
+    而且 失敗訊息應包含 "Payment declined"
+```
+
+</details>
+
+#### Inventory Service (庫存服務)
+
+| 標籤 | 場景 | 說明 |
+|------|------|------|
+| `@positive @happy-path` | 成功預留庫存 | 驗證有效庫存預留請求能成功處理並返回預留編號 |
+| `@positive @idempotent` | 冪等性 - 重複預留請求返回相同結果 | 驗證相同交易ID的重複請求只預留一次庫存 |
+| `@positive @rollback` | 成功釋放已預留的庫存 | 驗證已預留庫存能成功釋放 |
+| `@positive @rollback-idempotent` | 冪等性 - 重複釋放請求返回相同結果 | 驗證重複釋放請求的冪等性處理 |
+| `@negative @no-reservation` | 釋放不存在的預留 - 無操作 | 驗證對不存在的預留釋放時的安全處理 |
+| `@negative @failure-simulation` | 模擬庫存不足失敗 | 驗證庫存不足時的錯誤處理 |
+
+<details>
+<summary>查看完整測試場景 (inventory.feature)</summary>
+
+```gherkin
+# language: zh-TW
+@inventory
+功能: 庫存管理
+  作為電子商務系統
+  我需要管理商品庫存
+  以便確保訂單能正確預留和釋放庫存
+
+  背景:
+    假設 庫存服務已啟動
+
+  @positive @happy-path
+  場景: 成功預留庫存
+    假設 一個有效的庫存預留請求，交易ID為 "660e8400-e29b-41d4-a716-446655440001"
+    當 發送庫存預留請求
+    那麼 應該收到成功的預留回應
+    而且 回應應包含預留編號
+
+  @positive @idempotent
+  場景: 冪等性 - 重複預留請求返回相同結果
+    假設 一個有效的庫存預留請求，交易ID為 "660e8400-e29b-41d4-a716-446655440002"
+    當 發送庫存預留請求
+    而且 再次發送相同的庫存預留請求
+    那麼 兩次預留回應應該相同
+    而且 應該只預留一次庫存
+
+  @positive @rollback
+  場景: 成功釋放已預留的庫存
+    假設 一個有效的庫存預留請求，交易ID為 "660e8400-e29b-41d4-a716-446655440003"
+    當 發送庫存預留請求
+    而且 收到成功的預留回應
+    當 發送庫存釋放請求
+    那麼 應該收到成功的釋放回應
+    而且 釋放訊息應為 "Inventory released successfully"
+
+  @negative @failure-simulation
+  場景: 模擬庫存不足失敗
+    假設 庫存服務配置為失敗模式
+    假設 一個有效的庫存預留請求，交易ID為 "660e8400-e29b-41d4-a716-446655440006"
+    當 發送庫存預留請求
+    那麼 應該收到失敗的預留回應
+    而且 失敗訊息應包含 "Out of stock"
+```
+
+</details>
+
+#### Logistics Service (物流服務)
+
+| 標籤 | 場景 | 說明 |
+|------|------|------|
+| `@positive @happy-path` | 成功安排運送 | 驗證有效運送請求能成功處理並返回追蹤編號 |
+| `@positive @idempotent` | 冪等性 - 重複運送請求返回相同結果 | 驗證相同交易ID的重複請求只安排一次運送 |
+| `@positive @rollback` | 成功取消已安排的運送 | 驗證已安排運送能成功取消 |
+| `@positive @rollback-idempotent` | 冪等性 - 重複取消請求返回相同結果 | 驗證重複取消請求的冪等性處理 |
+| `@negative @no-shipment` | 取消不存在的運送 - 無操作 | 驗證對不存在的運送取消時的安全處理 |
+| `@negative @failure-simulation` | 模擬物流公司無法配送失敗 | 驗證配送失敗時的錯誤處理 |
+
+<details>
+<summary>查看完整測試場景 (logistics.feature)</summary>
+
+```gherkin
+# language: zh-TW
+@logistics
+功能: 物流運送管理
+  作為電子商務系統
+  我需要管理訂單配送
+  以便確保商品能正確安排運送和取消
+
+  背景:
+    假設 物流服務已啟動
+
+  @positive @happy-path
+  場景: 成功安排運送
+    假設 一個有效的運送請求，交易ID為 "770e8400-e29b-41d4-a716-446655440001"
+    當 發送運送安排請求
+    那麼 應該收到成功的運送回應
+    而且 回應應包含物流追蹤編號
+
+  @positive @idempotent
+  場景: 冪等性 - 重複運送請求返回相同結果
+    假設 一個有效的運送請求，交易ID為 "770e8400-e29b-41d4-a716-446655440002"
+    當 發送運送安排請求
+    而且 再次發送相同的運送安排請求
+    那麼 兩次運送回應應該相同
+    而且 應該只安排一次運送
+
+  @positive @rollback
+  場景: 成功取消已安排的運送
+    假設 一個有效的運送請求，交易ID為 "770e8400-e29b-41d4-a716-446655440003"
+    當 發送運送安排請求
+    而且 收到成功的運送回應
+    當 發送取消運送請求
+    那麼 應該收到成功的取消回應
+    而且 取消訊息應為 "Shipment cancelled successfully"
+
+  @negative @failure-simulation
+  場景: 模擬物流公司無法配送失敗
+    假設 物流服務配置為失敗模式
+    假設 一個有效的運送請求，交易ID為 "770e8400-e29b-41d4-a716-446655440006"
+    當 發送運送安排請求
+    那麼 應該收到失敗的運送回應
+    而且 失敗訊息應包含 "Carrier unavailable"
+```
+
+</details>
+
+#### Order Service (訂單服務 - Saga 協調者)
+
+| 標籤 | 場景 | 說明 |
+|------|------|------|
+| `@positive @happy-path` | 成功完成訂單確認流程 | 驗證有效訂單能成功啟動 Saga 流程 |
+| `@positive @transaction-query` | 查詢交易狀態 | 驗證能正確查詢已提交交易的狀態 |
+| `@negative @invalid-request` | 拒絕無效的訂單請求 | 驗證無效請求被正確拒絕 |
+| `@positive @config` | 取得服務配置 | 驗證能正確取得當前生效的服務配置 |
+| `@positive @config` | 取得服務超時設定 | 驗證能正確取得各服務的超時設定 |
+| `@positive @config` | 取得服務執行順序 | 驗證能正確取得服務執行順序 |
+
+<details>
+<summary>查看完整測試場景 (saga-orchestration.feature)</summary>
+
+```gherkin
+# language: zh-TW
+@saga @orchestration
+功能: Saga 交易編排
+  作為電子商務系統
+  我需要協調分散式交易
+  以便確保訂單流程的一致性
+
+  背景:
+    假設 訂單服務已啟動
+    而且 所有下游服務已可用
+
+  @positive @happy-path
+  場景: 成功完成訂單確認流程
+    假設 一個有效的訂單確認請求
+    當 發送訂單確認請求
+    那麼 應該收到處理中的回應
+    而且 回應應包含交易ID
+
+  @positive @transaction-query
+  場景: 查詢交易狀態
+    假設 一個已提交的訂單交易
+    當 查詢該交易狀態
+    那麼 應該收到交易狀態資訊
+    而且 狀態應包含交易ID
+
+  @negative @invalid-request
+  場景: 拒絕無效的訂單請求
+    假設 一個缺少必要欄位的訂單請求
+    當 發送無效的訂單確認請求
+    那麼 應該收到錯誤回應
+
+  @positive @config
+  場景: 取得服務配置
+    當 取得當前生效配置
+    那麼 應該收到配置資訊
+    而且 配置應包含服務順序
+
+  @positive @config
+  場景: 取得服務超時設定
+    當 取得服務超時設定
+    那麼 應該收到超時配置
+    而且 每個服務都應有超時值
+
+  @positive @config
+  場景: 取得服務執行順序
+    當 取得服務執行順序
+    那麼 應該收到服務順序列表
+    而且 列表應包含信用卡、庫存和物流服務
+```
+
+</details>
+
+### 單元測試
+
+| 服務 | 測試類別 | 測試內容 |
+|------|----------|----------|
+| order-service | `WebSocketAdapterTest` | WebSocket 訊息發送、狀態更新 |
+| order-service | `OutboxPollerTest` | Outbox 事件輪詢與處理 |
+| credit-card-service | `CreditCardServiceTest` | 付款處理邏輯、冪等性 |
+| credit-card-service | `CreditCardControllerTest` | REST API 端點測試 |
+| inventory-service | `InventoryServiceTest` | 庫存預留與釋放邏輯 |
+| inventory-service | `InventoryControllerTest` | REST API 端點測試 |
+| logistics-service | `LogisticsServiceTest` | 運送安排與取消邏輯 |
+| logistics-service | `LogisticsControllerTest` | REST API 端點測試 |
+
+### 測試涵蓋範圍
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      測試金字塔                                   │
+├─────────────────────────────────────────────────────────────────┤
+│                         ▲                                        │
+│                        /E\        E2E 測試 (手動)                 │
+│                       /───\                                      │
+│                      /     \                                     │
+│                     / BDD   \     BDD 整合測試 (自動化)           │
+│                    /─────────\    - 4 個服務 × 6 場景             │
+│                   /           \                                  │
+│                  /   單元測試   \  單元測試 (自動化)               │
+│                 /───────────────\ - Service, Controller, Adapter │
+│                /                 \                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 專案結構
 
 ```
