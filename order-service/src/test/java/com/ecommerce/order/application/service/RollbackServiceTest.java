@@ -4,6 +4,7 @@ import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.domain.TransactionStatus;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
+import com.ecommerce.order.application.port.out.NotificationPort;
 import com.ecommerce.order.application.port.out.ServiceClientPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.application.port.out.WebSocketPort;
@@ -41,11 +42,14 @@ class RollbackServiceTest {
     @Mock
     private WebSocketPort webSocketPort;
 
+    @Mock
+    private NotificationPort notificationPort;
+
     private RollbackService rollbackService;
 
     @BeforeEach
     void setUp() {
-        rollbackService = new RollbackService(transactionLogPort, serviceClientPort, webSocketPort);
+        rollbackService = new RollbackService(transactionLogPort, serviceClientPort, webSocketPort, notificationPort);
     }
 
     @Nested
