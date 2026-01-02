@@ -7,10 +7,10 @@ import com.ecommerce.order.adapter.in.web.dto.OrderConfirmResponse;
 import com.ecommerce.order.adapter.in.web.dto.TransactionStatusResponse;
 import com.ecommerce.order.application.port.in.OrderConfirmUseCase;
 import com.ecommerce.order.application.port.in.TransactionQueryUseCase;
+import com.ecommerce.order.application.port.out.CheckerPort;
 import com.ecommerce.order.application.port.out.OutboxPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.domain.model.TransactionLog;
-import com.ecommerce.order.infrastructure.checker.CheckerThreadManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -44,15 +44,15 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
 
     private final TransactionLogPort transactionLogPort;
     private final OutboxPort outboxPort;
-    private final CheckerThreadManager checkerThreadManager;
+    private final CheckerPort checkerPort;
     private final ObjectMapper objectMapper;
 
     public OrderSagaService(TransactionLogPort transactionLogPort,
                             OutboxPort outboxPort,
-                            CheckerThreadManager checkerThreadManager) {
+                            CheckerPort checkerPort) {
         this.transactionLogPort = transactionLogPort;
         this.outboxPort = outboxPort;
-        this.checkerThreadManager = checkerThreadManager;
+        this.checkerPort = checkerPort;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -92,7 +92,7 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
             // Start checker thread to monitor for timeout/failure (T106)
             UUID txUuid = UUID.fromString(txId);
             UUID orderUuid = UUID.fromString(request.orderId());
-            checkerThreadManager.startCheckerThread(txUuid, orderUuid, DEFAULT_TIMEOUTS);
+            checkerPort.startCheckerThread(txUuid, orderUuid, DEFAULT_TIMEOUTS);
 
             log.info("Order confirmation initiated successfully txId={}", txId);
             return new OrderConfirmResponse(txId, "PROCESSING");

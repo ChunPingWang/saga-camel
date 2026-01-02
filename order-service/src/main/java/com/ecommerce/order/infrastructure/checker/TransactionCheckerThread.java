@@ -2,8 +2,8 @@ package com.ecommerce.order.infrastructure.checker;
 
 import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.domain.TransactionStatus;
+import com.ecommerce.order.application.port.out.RollbackExecutorPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
-import com.ecommerce.order.application.service.RollbackService;
 import com.ecommerce.order.domain.model.TransactionLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +28,7 @@ public class TransactionCheckerThread implements Runnable {
     private final Map<ServiceName, Integer> timeouts;
     private final long checkIntervalMs;
     private final TransactionLogPort transactionLogPort;
-    private final RollbackService rollbackService;
+    private final RollbackExecutorPort rollbackExecutorPort;
     private final CheckerThreadManager manager;
     private final AtomicBoolean running = new AtomicBoolean(true);
 
@@ -38,14 +38,14 @@ public class TransactionCheckerThread implements Runnable {
             Map<ServiceName, Integer> timeouts,
             long checkIntervalMs,
             TransactionLogPort transactionLogPort,
-            RollbackService rollbackService,
+            RollbackExecutorPort rollbackExecutorPort,
             CheckerThreadManager manager) {
         this.txId = txId;
         this.orderId = orderId;
         this.timeouts = timeouts;
         this.checkIntervalMs = checkIntervalMs;
         this.transactionLogPort = transactionLogPort;
-        this.rollbackService = rollbackService;
+        this.rollbackExecutorPort = rollbackExecutorPort;
         this.manager = manager;
     }
 
@@ -183,7 +183,7 @@ public class TransactionCheckerThread implements Runnable {
 
     private void triggerRollback(List<ServiceName> successfulServices) {
         try {
-            rollbackService.executeRollback(txId, orderId, successfulServices);
+            rollbackExecutorPort.executeRollback(txId, orderId, successfulServices);
         } catch (Exception e) {
             log.error("Failed to execute rollback for txId={}: {}", txId, e.getMessage(), e);
         }

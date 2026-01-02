@@ -1,8 +1,8 @@
 package com.ecommerce.order.application.service;
 
 import com.ecommerce.common.domain.ServiceName;
+import com.ecommerce.order.application.port.out.CheckerPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
-import com.ecommerce.order.infrastructure.checker.CheckerThreadManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,25 +21,25 @@ public class SagaRecoveryService {
     private static final Logger log = LoggerFactory.getLogger(SagaRecoveryService.class);
 
     private final TransactionLogPort transactionLogPort;
-    private final CheckerThreadManager checkerThreadManager;
+    private final CheckerPort checkerPort;
     private final Map<ServiceName, Integer> timeouts;
 
     @Autowired
     public SagaRecoveryService(
             TransactionLogPort transactionLogPort,
-            CheckerThreadManager checkerThreadManager) {
+            CheckerPort checkerPort) {
         this.transactionLogPort = transactionLogPort;
-        this.checkerThreadManager = checkerThreadManager;
+        this.checkerPort = checkerPort;
         this.timeouts = getDefaultTimeouts();
     }
 
     // Constructor with custom timeouts (for testing)
     public SagaRecoveryService(
             TransactionLogPort transactionLogPort,
-            CheckerThreadManager checkerThreadManager,
+            CheckerPort checkerPort,
             Map<ServiceName, Integer> timeouts) {
         this.transactionLogPort = transactionLogPort;
-        this.checkerThreadManager = checkerThreadManager;
+        this.checkerPort = checkerPort;
         this.timeouts = timeouts != null ? timeouts : getDefaultTimeouts();
     }
 
@@ -58,13 +58,13 @@ public class SagaRecoveryService {
 
         for (var tx : unfinished) {
             try {
-                if (checkerThreadManager.hasActiveThread(tx.txId())) {
+                if (checkerPort.hasActiveThread(tx.txId())) {
                     log.debug("Skipping txId={} - already being monitored", tx.txId());
                     continue;
                 }
 
                 log.info("Recovering transaction txId={}, orderId={}", tx.txId(), tx.orderId());
-                checkerThreadManager.startCheckerThread(tx.txId(), tx.orderId(), timeouts);
+                checkerPort.startCheckerThread(tx.txId(), tx.orderId(), timeouts);
                 recovered++;
 
             } catch (Exception e) {

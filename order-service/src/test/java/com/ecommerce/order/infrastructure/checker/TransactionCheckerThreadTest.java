@@ -2,8 +2,8 @@ package com.ecommerce.order.infrastructure.checker;
 
 import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.domain.TransactionStatus;
+import com.ecommerce.order.application.port.out.RollbackExecutorPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
-import com.ecommerce.order.application.service.RollbackService;
 import com.ecommerce.order.domain.model.TransactionLog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,7 +37,7 @@ class TransactionCheckerThreadTest {
     private TransactionLogPort transactionLogPort;
 
     @Mock
-    private RollbackService rollbackService;
+    private RollbackExecutorPort rollbackExecutorPort;
 
     @Mock
     private CheckerThreadManager checkerThreadManager;
@@ -78,11 +78,11 @@ class TransactionCheckerThreadTest {
             doAnswer(invocation -> {
                 rollbackCalled.countDown();
                 return null;
-            }).when(rollbackService).executeRollback(any(), any(), any());
+            }).when(rollbackExecutorPort).executeRollback(any(), any(), any());
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100, // 100ms check interval for fast test
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When
@@ -93,7 +93,7 @@ class TransactionCheckerThreadTest {
             boolean rollbackTriggered = rollbackCalled.await(2, TimeUnit.SECONDS);
             assertThat(rollbackTriggered).isTrue();
 
-            verify(rollbackService).executeRollback(eq(txId), eq(orderId), any());
+            verify(rollbackExecutorPort).executeRollback(eq(txId), eq(orderId), any());
 
             checker.stop();
             thread.join(1000);
@@ -112,7 +112,7 @@ class TransactionCheckerThreadTest {
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100,
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When - Run for a short time
@@ -123,7 +123,7 @@ class TransactionCheckerThreadTest {
             thread.join(1000);
 
             // Then - Rollback should not have been triggered
-            verify(rollbackService, never()).executeRollback(any(), any(), any());
+            verify(rollbackExecutorPort, never()).executeRollback(any(), any(), any());
         }
     }
 
@@ -144,7 +144,7 @@ class TransactionCheckerThreadTest {
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100,
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When
@@ -169,7 +169,7 @@ class TransactionCheckerThreadTest {
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100,
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When
@@ -201,11 +201,11 @@ class TransactionCheckerThreadTest {
             doAnswer(invocation -> {
                 rollbackCalled.countDown();
                 return null;
-            }).when(rollbackService).executeRollback(any(), any(), any());
+            }).when(rollbackExecutorPort).executeRollback(any(), any(), any());
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100,
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When
@@ -216,7 +216,7 @@ class TransactionCheckerThreadTest {
             boolean rollbackTriggered = rollbackCalled.await(2, TimeUnit.SECONDS);
             assertThat(rollbackTriggered).isTrue();
 
-            verify(rollbackService).executeRollback(
+            verify(rollbackExecutorPort).executeRollback(
                     eq(txId),
                     eq(orderId),
                     eq(List.of(ServiceName.CREDIT_CARD))
@@ -242,7 +242,7 @@ class TransactionCheckerThreadTest {
 
             TransactionCheckerThread checker = new TransactionCheckerThread(
                     txId, orderId, timeouts, 100,
-                    transactionLogPort, rollbackService, checkerThreadManager
+                    transactionLogPort, rollbackExecutorPort, checkerThreadManager
             );
 
             // When

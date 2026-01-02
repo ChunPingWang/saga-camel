@@ -1,8 +1,8 @@
 package com.ecommerce.order.infrastructure.checker;
 
 import com.ecommerce.common.domain.ServiceName;
+import com.ecommerce.order.application.port.out.RollbackExecutorPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
-import com.ecommerce.order.application.service.RollbackService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,7 +30,7 @@ class CheckerThreadManagerTest {
     private TransactionLogPort transactionLogPort;
 
     @Mock
-    private RollbackService rollbackService;
+    private RollbackExecutorPort rollbackExecutorPort;
 
     private CheckerThreadManager manager;
     private Map<ServiceName, Integer> timeouts;
@@ -42,7 +42,7 @@ class CheckerThreadManagerTest {
                 ServiceName.INVENTORY, 60,
                 ServiceName.LOGISTICS, 120
         );
-        manager = new CheckerThreadManager(transactionLogPort, rollbackService);
+        manager = new CheckerThreadManager(transactionLogPort, rollbackExecutorPort);
     }
 
     @Nested

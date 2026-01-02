@@ -5,6 +5,7 @@ import com.ecommerce.common.domain.TransactionStatus;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.order.application.port.out.NotificationPort;
+import com.ecommerce.order.application.port.out.RollbackExecutorPort;
 import com.ecommerce.order.application.port.out.ServiceClientPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.application.port.out.WebSocketPort;
@@ -23,7 +24,7 @@ import java.util.UUID;
  * Rolls back services in reverse order of their execution.
  */
 @Service
-public class RollbackService {
+public class RollbackService implements RollbackExecutorPort {
 
     private static final Logger log = LoggerFactory.getLogger(RollbackService.class);
     private static final int DEFAULT_MAX_RETRIES = 5;
@@ -50,6 +51,7 @@ public class RollbackService {
      * @param orderId the order ID
      * @param successfulServices list of services that completed successfully (in execution order)
      */
+    @Override
     public void executeRollback(UUID txId, UUID orderId, List<ServiceName> successfulServices) {
         MDC.put("txId", txId.toString());
         try {
@@ -116,6 +118,7 @@ public class RollbackService {
      * @param txId the transaction ID
      * @return list of successful service names in execution order
      */
+    @Override
     public List<ServiceName> getSuccessfulServices(UUID txId) {
         return transactionLogPort.findSuccessfulServices(txId);
     }
@@ -128,6 +131,7 @@ public class RollbackService {
      * @param successfulServices list of services that completed successfully
      * @param maxRetries maximum number of retry attempts per service
      */
+    @Override
     public void executeRollbackWithRetry(UUID txId, UUID orderId, List<ServiceName> successfulServices, int maxRetries) {
         MDC.put("txId", txId.toString());
         try {

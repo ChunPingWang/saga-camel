@@ -1,9 +1,9 @@
 package com.ecommerce.order.application.service;
 
 import com.ecommerce.common.domain.ServiceName;
+import com.ecommerce.order.application.port.out.CheckerPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.domain.model.TransactionLog;
-import com.ecommerce.order.infrastructure.checker.CheckerThreadManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,7 +32,7 @@ class SagaRecoveryServiceTest {
     private TransactionLogPort transactionLogPort;
 
     @Mock
-    private CheckerThreadManager checkerThreadManager;
+    private CheckerPort checkerPort;
 
     private SagaRecoveryService recoveryService;
 
@@ -44,7 +44,7 @@ class SagaRecoveryServiceTest {
 
     @BeforeEach
     void setUp() {
-        recoveryService = new SagaRecoveryService(transactionLogPort, checkerThreadManager, DEFAULT_TIMEOUTS);
+        recoveryService = new SagaRecoveryService(transactionLogPort, checkerPort, DEFAULT_TIMEOUTS);
     }
 
     @Nested
@@ -72,8 +72,8 @@ class SagaRecoveryServiceTest {
 
             // Then
             assertThat(count).isEqualTo(2);
-            verify(checkerThreadManager).startCheckerThread(eq(txId1), eq(orderId1), any());
-            verify(checkerThreadManager).startCheckerThread(eq(txId2), eq(orderId2), any());
+            verify(checkerPort).startCheckerThread(eq(txId1), eq(orderId1), any());
+            verify(checkerPort).startCheckerThread(eq(txId2), eq(orderId2), any());
         }
 
         @Test
@@ -87,7 +87,7 @@ class SagaRecoveryServiceTest {
 
             // Then
             assertThat(count).isEqualTo(0);
-            verify(checkerThreadManager, never()).startCheckerThread(any(), any(), any());
+            verify(checkerPort, never()).startCheckerThread(any(), any(), any());
         }
 
         @Test
@@ -105,16 +105,16 @@ class SagaRecoveryServiceTest {
             );
 
             when(transactionLogPort.findUnfinishedTransactions()).thenReturn(unfinished);
-            when(checkerThreadManager.hasActiveThread(txId1)).thenReturn(true);  // Already monitored
-            when(checkerThreadManager.hasActiveThread(txId2)).thenReturn(false);
+            when(checkerPort.hasActiveThread(txId1)).thenReturn(true);  // Already monitored
+            when(checkerPort.hasActiveThread(txId2)).thenReturn(false);
 
             // When
             int count = recoveryService.recoverUnfinishedTransactions();
 
             // Then
             assertThat(count).isEqualTo(1);  // Only txId2 was started
-            verify(checkerThreadManager, never()).startCheckerThread(eq(txId1), any(), any());
-            verify(checkerThreadManager).startCheckerThread(eq(txId2), eq(orderId2), any());
+            verify(checkerPort, never()).startCheckerThread(eq(txId1), any(), any());
+            verify(checkerPort).startCheckerThread(eq(txId2), eq(orderId2), any());
         }
 
         @Test
@@ -134,7 +134,7 @@ class SagaRecoveryServiceTest {
             when(transactionLogPort.findUnfinishedTransactions()).thenReturn(unfinished);
 
             // First one throws, second should still be processed
-            doThrow(new RuntimeException("Failed to start")).when(checkerThreadManager)
+            doThrow(new RuntimeException("Failed to start")).when(checkerPort)
                     .startCheckerThread(eq(txId1), any(), any());
 
             // When
@@ -142,7 +142,7 @@ class SagaRecoveryServiceTest {
 
             // Then - txId2 should still have been attempted
             assertThat(count).isEqualTo(1);  // Only second one succeeded
-            verify(checkerThreadManager).startCheckerThread(eq(txId2), eq(orderId2), any());
+            verify(checkerPort).startCheckerThread(eq(txId2), eq(orderId2), any());
         }
     }
 }

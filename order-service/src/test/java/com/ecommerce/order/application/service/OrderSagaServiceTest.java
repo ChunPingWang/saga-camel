@@ -5,10 +5,10 @@ import com.ecommerce.common.domain.TransactionStatus;
 import com.ecommerce.order.adapter.in.web.dto.OrderConfirmRequest;
 import com.ecommerce.order.adapter.in.web.dto.OrderConfirmResponse;
 import com.ecommerce.order.adapter.in.web.dto.TransactionStatusResponse;
+import com.ecommerce.order.application.port.out.CheckerPort;
 import com.ecommerce.order.application.port.out.OutboxPort;
 import com.ecommerce.order.application.port.out.TransactionLogPort;
 import com.ecommerce.order.domain.model.TransactionLog;
-import com.ecommerce.order.infrastructure.checker.CheckerThreadManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -43,13 +43,13 @@ class OrderSagaServiceTest {
     private OutboxPort outboxPort;
 
     @Mock
-    private CheckerThreadManager checkerThreadManager;
+    private CheckerPort checkerPort;
 
     private OrderSagaService orderSagaService;
 
     @BeforeEach
     void setUp() {
-        orderSagaService = new OrderSagaService(transactionLogPort, outboxPort, checkerThreadManager);
+        orderSagaService = new OrderSagaService(transactionLogPort, outboxPort, checkerPort);
     }
 
     @Nested
