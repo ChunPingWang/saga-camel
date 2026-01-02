@@ -53,7 +53,8 @@ flowchart TB
         end
 
         Adapters --> App
-        App --> Infra
+        App -.->|uses| OutPort["Output Ports"]
+        Infra -.->|implements| OutPort
         Infra --> DB
     end
 
@@ -84,9 +85,10 @@ flowchart LR
             REST["REST Controller"]
             WSHandler["WebSocket Handler"]
         end
-        subgraph OutAdapter["Outbound Adapters"]
+        subgraph OutAdapter["Outbound Adapters<br/>(implements Output Ports)"]
             Repo["JPA Repository"]
             HttpClient["HTTP Client"]
+            CheckerAdapter["CheckerThreadManager"]
         end
     end
 
@@ -111,13 +113,14 @@ flowchart LR
 
     Client --> REST
     REST --> InPort
-    OutPort --> Repo
-    OutPort --> HttpClient
+    OutAdapter -.->|implements| OutPort
     Repo --> Database
     HttpClient --> ExtSvc
 
     Application --> Domain
 ```
+
+> **依賴倒轉原則 (DIP)**: Application Layer 定義 Output Ports (介面)，Infrastructure/Adapter Layer 實現這些介面。Application Layer 不直接依賴 Infrastructure Layer。
 
 ---
 
@@ -787,13 +790,17 @@ ecom-saga-poc/
 │           ├── application/
 │           │   ├── port/in/         # Use Case Interfaces
 │           │   ├── port/out/        # Output Port Interfaces
+│           │   │   ├── CheckerPort.java
+│           │   │   ├── RollbackExecutorPort.java
+│           │   │   ├── TransactionLogPort.java
+│           │   │   └── ...
 │           │   └── service/         # Application Services
 │           ├── domain/
 │           │   ├── model/           # Domain Entities
 │           │   └── event/           # Domain Events
-│           └── infrastructure/
+│           └── infrastructure/      # Implements Output Ports (DIP)
 │               ├── camel/           # Camel Routes & Processors
-│               ├── checker/         # Transaction Checker Threads
+│               ├── checker/         # CheckerPort 實現
 │               ├── config/          # Spring Configurations
 │               ├── observability/   # Metrics & Tracing
 │               ├── poller/          # Outbox Poller
