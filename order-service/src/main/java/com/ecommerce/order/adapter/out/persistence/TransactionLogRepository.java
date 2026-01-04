@@ -73,4 +73,20 @@ public interface TransactionLogRepository extends JpaRepository<TransactionLogEn
         AND t.status IN ('S', 'D', 'RF')
     """)
     boolean hasTerminalStatus(@Param("txId") String txId);
+
+    /**
+     * Find all logs for an order ID ordered by creation time.
+     */
+    List<TransactionLogEntity> findByOrderIdOrderByCreatedAtDesc(String orderId);
+
+    /**
+     * Find distinct transaction IDs for a given order ID, ordered by earliest creation time.
+     */
+    @Query("""
+        SELECT t.txId FROM TransactionLogEntity t
+        WHERE t.orderId = :orderId
+        GROUP BY t.txId
+        ORDER BY MIN(t.createdAt) DESC
+    """)
+    List<String> findDistinctTxIdsByOrderId(@Param("orderId") String orderId);
 }

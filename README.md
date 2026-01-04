@@ -207,7 +207,8 @@ erDiagram
 | Method | Endpoint | 說明 |
 |--------|----------|------|
 | `POST` | `/api/v1/orders/confirm` | 確認訂單，啟動 Saga 流程 |
-| `GET` | `/api/v1/transactions/{txId}` | 查詢交易狀態 |
+| `GET` | `/api/v1/transactions/{txId}` | 依交易 ID 查詢交易狀態 |
+| `GET` | `/api/v1/transactions/orders/{orderId}/history` | 依訂單 ID 查詢所有交易歷史 |
 
 #### 管理員配置 API
 
@@ -274,10 +275,23 @@ curl -X POST http://localhost:8080/api/v1/orders/confirm \
 # Response:
 # {"txId": "a1b2c3d4-...", "status": "PROCESSING"}
 
-# 2. 查詢交易狀態
+# 2. 依交易 ID 查詢交易狀態
 curl http://localhost:8080/api/v1/transactions/{txId}
 
-# 3. 取得服務配置
+# 3. 依訂單 ID 查詢所有交易歷史 (支援重試場景)
+curl http://localhost:8080/api/v1/transactions/orders/{orderId}/history
+
+# Response:
+# {
+#   "orderId": "550e8400-e29b-41d4-a716-446655440000",
+#   "totalTransactions": 2,
+#   "transactions": [
+#     {"txId": "tx-1", "overallStatus": "ROLLED_BACK", "startedAt": "...", "services": [...]},
+#     {"txId": "tx-2", "overallStatus": "COMPLETED", "startedAt": "...", "services": [...]}
+#   ]
+# }
+
+# 4. 取得服務配置
 curl http://localhost:8080/api/v1/admin/config/active
 ```
 

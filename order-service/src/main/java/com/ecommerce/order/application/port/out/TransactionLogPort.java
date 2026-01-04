@@ -88,4 +88,16 @@ public interface TransactionLogPort {
      * Check if all services completed successfully for a transaction.
      */
     boolean isTransactionComplete(UUID txId, List<ServiceName> expectedServices);
+
+    /**
+     * Find all transaction logs for a given order ID.
+     * Returns all saga executions associated with this order.
+     */
+    List<TransactionLog> findByOrderId(UUID orderId);
+
+    /**
+     * Find distinct transaction IDs for a given order ID.
+     * Useful for listing all saga executions for an order.
+     */
+    List<UUID> findDistinctTxIdsByOrderId(UUID orderId);
 }

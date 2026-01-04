@@ -163,6 +163,22 @@ public class TransactionLogPersistenceAdapter implements TransactionLogPort {
         return successfulServices.containsAll(expectedServices);
     }
 
+    @Override
+    public List<TransactionLog> findByOrderId(UUID orderId) {
+        return repository.findByOrderIdOrderByCreatedAtDesc(orderId.toString())
+                .stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UUID> findDistinctTxIdsByOrderId(UUID orderId) {
+        return repository.findDistinctTxIdsByOrderId(orderId.toString())
+                .stream()
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+    }
+
     private TransactionLog toDomain(TransactionLogEntity entity) {
         TransactionLog log = TransactionLog.createWithRetry(
                 UUID.fromString(entity.getTxId()),

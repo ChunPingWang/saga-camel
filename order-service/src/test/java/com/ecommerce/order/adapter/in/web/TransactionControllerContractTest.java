@@ -1,5 +1,6 @@
 package com.ecommerce.order.adapter.in.web;
 
+import com.ecommerce.order.adapter.in.web.dto.OrderTransactionHistoryResponse;
 import com.ecommerce.order.adapter.in.web.dto.TransactionStatusResponse;
 import com.ecommerce.order.application.port.in.TransactionQueryUseCase;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,6 +140,154 @@ class TransactionControllerContractTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.overallStatus").value("FAILED"))
                     .andExpect(jsonPath("$.services[1].status").value("F"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/transactions/orders/{orderId}/history")
+    class GetOrderTransactionHistory {
+
+        @Test
+        @DisplayName("should return 200 OK with transaction history when order exists")
+        void shouldReturn200WithHistoryWhenOrderExists() throws Exception {
+            // Given
+            String orderId = UUID.randomUUID().toString();
+            String txId1 = UUID.randomUUID().toString();
+            String txId2 = UUID.randomUUID().toString();
+            Instant now = Instant.now();
+
+            OrderTransactionHistoryResponse response = new OrderTransactionHistoryResponse(
+                    orderId,
+                    2,
+                    List.of(
+                            new OrderTransactionHistoryResponse.TransactionSummary(
+                                    txId1,
+                                    "COMPLETED",
+                                    now.toString(),
+                                    List.of(
+                                            new TransactionStatusResponse.ServiceStatusDto("CREDIT_CARD", "S", now),
+                                            new TransactionStatusResponse.ServiceStatusDto("INVENTORY", "S", now),
+                                            new TransactionStatusResponse.ServiceStatusDto("LOGISTICS", "S", now)
+                                    )
+                            ),
+                            new OrderTransactionHistoryResponse.TransactionSummary(
+                                    txId2,
+                                    "ROLLED_BACK",
+                                    now.minusSeconds(300).toString(),
+                                    List.of(
+                                            new TransactionStatusResponse.ServiceStatusDto("CREDIT_CARD", "R", now),
+                                            new TransactionStatusResponse.ServiceStatusDto("INVENTORY", "F", now),
+                                            new TransactionStatusResponse.ServiceStatusDto("LOGISTICS", "U", null)
+                                    )
+                            )
+                    )
+            );
+
+            when(transactionQueryUseCase.getOrderTransactionHistory(orderId))
+                    .thenReturn(Optional.of(response));
+
+            // When/Then
+            mockMvc.perform(get("/api/v1/transactions/orders/{orderId}/history", orderId)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.orderId").value(orderId))
+                    .andExpect(jsonPath("$.totalTransactions").value(2))
+                    .andExpect(jsonPath("$.transactions").isArray())
+                    .andExpect(jsonPath("$.transactions.length()").value(2))
+                    .andExpect(jsonPath("$.transactions[0].txId").value(txId1))
+                    .andExpect(jsonPath("$.transactions[0].overallStatus").value("COMPLETED"))
+                    .andExpect(jsonPath("$.transactions[1].txId").value(txId2))
+                    .andExpect(jsonPath("$.transactions[1].overallStatus").value("ROLLED_BACK"));
+        }
+
+        @Test
+        @DisplayName("should return 404 Not Found when order has no transactions")
+        void shouldReturn404WhenOrderNotFound() throws Exception {
+            // Given
+            String orderId = UUID.randomUUID().toString();
+            when(transactionQueryUseCase.getOrderTransactionHistory(anyString()))
+                    .thenReturn(Optional.empty());
+
+            // When/Then
+            mockMvc.perform(get("/api/v1/transactions/orders/{orderId}/history", orderId)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("should return single transaction when order has one execution")
+        void shouldReturnSingleTransactionHistory() throws Exception {
+            // Given
+            String orderId = UUID.randomUUID().toString();
+            String txId = UUID.randomUUID().toString();
+            Instant now = Instant.now();
+
+            OrderTransactionHistoryResponse response = new OrderTransactionHistoryResponse(
+                    orderId,
+                    1,
+                    List.of(
+                            new OrderTransactionHistoryResponse.TransactionSummary(
+                                    txId,
+                                    "PROCESSING",
+                                    now.toString(),
+                                    List.of(
+                                            new TransactionStatusResponse.ServiceStatusDto("CREDIT_CARD", "S", now),
+                                            new TransactionStatusResponse.ServiceStatusDto("INVENTORY", "U", null),
+                                            new TransactionStatusResponse.ServiceStatusDto("LOGISTICS", "U", null)
+                                    )
+                            )
+                    )
+            );
+
+            when(transactionQueryUseCase.getOrderTransactionHistory(orderId))
+                    .thenReturn(Optional.of(response));
+
+            // When/Then
+            mockMvc.perform(get("/api/v1/transactions/orders/{orderId}/history", orderId)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalTransactions").value(1))
+                    .andExpect(jsonPath("$.transactions[0].overallStatus").value("PROCESSING"))
+                    .andExpect(jsonPath("$.transactions[0].services.length()").value(3));
+        }
+
+        @Test
+        @DisplayName("should include service details in each transaction summary")
+        void shouldIncludeServiceDetailsInTransactionSummary() throws Exception {
+            // Given
+            String orderId = UUID.randomUUID().toString();
+            String txId = UUID.randomUUID().toString();
+            Instant completedAt = Instant.parse("2026-01-04T10:30:00Z");
+
+            OrderTransactionHistoryResponse response = new OrderTransactionHistoryResponse(
+                    orderId,
+                    1,
+                    List.of(
+                            new OrderTransactionHistoryResponse.TransactionSummary(
+                                    txId,
+                                    "COMPLETED",
+                                    completedAt.toString(),
+                                    List.of(
+                                            new TransactionStatusResponse.ServiceStatusDto("CREDIT_CARD", "S", completedAt),
+                                            new TransactionStatusResponse.ServiceStatusDto("INVENTORY", "S", completedAt.plusSeconds(5)),
+                                            new TransactionStatusResponse.ServiceStatusDto("LOGISTICS", "S", completedAt.plusSeconds(10))
+                                    )
+                            )
+                    )
+            );
+
+            when(transactionQueryUseCase.getOrderTransactionHistory(orderId))
+                    .thenReturn(Optional.of(response));
+
+            // When/Then
+            mockMvc.perform(get("/api/v1/transactions/orders/{orderId}/history", orderId)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.transactions[0].services[0].serviceName").value("CREDIT_CARD"))
+                    .andExpect(jsonPath("$.transactions[0].services[0].status").value("S"))
+                    .andExpect(jsonPath("$.transactions[0].services[1].serviceName").value("INVENTORY"))
+                    .andExpect(jsonPath("$.transactions[0].services[2].serviceName").value("LOGISTICS"));
         }
     }
 }

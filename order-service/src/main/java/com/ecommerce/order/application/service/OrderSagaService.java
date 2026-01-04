@@ -4,6 +4,7 @@ import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.domain.TransactionStatus;
 import com.ecommerce.order.adapter.in.web.dto.OrderConfirmRequest;
 import com.ecommerce.order.adapter.in.web.dto.OrderConfirmResponse;
+import com.ecommerce.order.adapter.in.web.dto.OrderTransactionHistoryResponse;
 import com.ecommerce.order.adapter.in.web.dto.TransactionStatusResponse;
 import com.ecommerce.order.application.port.in.OrderConfirmUseCase;
 import com.ecommerce.order.application.port.in.TransactionQueryUseCase;
@@ -117,11 +118,11 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
             String overallStatus = calculateOverallStatus(logs);
 
             List<TransactionStatusResponse.ServiceStatusDto> serviceStatuses = logs.stream()
-                    .map(log -> new TransactionStatusResponse.ServiceStatusDto(
-                            log.getServiceName().name(),
-                            log.getStatus().getCode(),
-                            log.getCreatedAt() != null ?
-                                log.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant() : null
+                    .map(logEntry -> new TransactionStatusResponse.ServiceStatusDto(
+                            logEntry.getServiceName().name(),
+                            logEntry.getStatus().getCode(),
+                            logEntry.getCreatedAt() != null ?
+                                logEntry.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant() : null
                     ))
                     .toList();
 
@@ -130,6 +131,69 @@ public class OrderSagaService implements OrderConfirmUseCase, TransactionQueryUs
         } finally {
             MDC.remove("txId");
         }
+    }
+
+    @Override
+    public Optional<OrderTransactionHistoryResponse> getOrderTransactionHistory(String orderId) {
+        try {
+            UUID orderUuid = UUID.fromString(orderId);
+            List<UUID> txIds = transactionLogPort.findDistinctTxIdsByOrderId(orderUuid);
+
+            if (txIds.isEmpty()) {
+                log.debug("No transactions found for orderId={}", orderId);
+                return Optional.empty();
+            }
+
+            List<OrderTransactionHistoryResponse.TransactionSummary> transactions = txIds.stream()
+                    .map(txId -> buildTransactionSummary(txId.toString()))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+
+            return Optional.of(new OrderTransactionHistoryResponse(
+                    orderId,
+                    transactions.size(),
+                    transactions
+            ));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid orderId format: {}", orderId);
+            return Optional.empty();
+        }
+    }
+
+    private Optional<OrderTransactionHistoryResponse.TransactionSummary> buildTransactionSummary(String txId) {
+        List<TransactionLog> logs = transactionLogPort.findLatestByTxId(txId);
+
+        if (logs.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String overallStatus = calculateOverallStatus(logs);
+
+        // Find the earliest createdAt as the transaction start time
+        String startedAt = logs.stream()
+                .map(TransactionLog::getCreatedAt)
+                .filter(java.util.Objects::nonNull)
+                .min(java.time.LocalDateTime::compareTo)
+                .map(dt -> dt.atZone(java.time.ZoneId.systemDefault()).toInstant().toString())
+                .orElse(null);
+
+        List<TransactionStatusResponse.ServiceStatusDto> serviceStatuses = logs.stream()
+                .map(logEntry -> new TransactionStatusResponse.ServiceStatusDto(
+                        logEntry.getServiceName().name(),
+                        logEntry.getStatus().getCode(),
+                        logEntry.getCreatedAt() != null ?
+                            logEntry.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant() : null
+                ))
+                .toList();
+
+        return Optional.of(new OrderTransactionHistoryResponse.TransactionSummary(
+                txId,
+                overallStatus,
+                startedAt,
+                serviceStatuses
+        ));
     }
 
     private String calculateOverallStatus(List<TransactionLog> logs) {
