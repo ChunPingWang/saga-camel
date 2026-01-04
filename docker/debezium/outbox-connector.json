@@ -1,0 +1,39 @@
+{
+  "name": "saga-outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "saga",
+    "database.password": "saga_password",
+    "database.dbname": "sagadb",
+    "topic.prefix": "saga",
+    "table.include.list": "public.outbox_event",
+    "slot.name": "saga_outbox_slot",
+    "publication.name": "dbz_publication",
+    "plugin.name": "pgoutput",
+
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.fields.additional.placement": "type:header:eventType",
+    "transforms.outbox.table.field.event.id": "id",
+    "transforms.outbox.table.field.event.key": "aggregateid",
+    "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.table.field.event.timestamp": "created_at",
+    "transforms.outbox.route.by.field": "aggregatetype",
+    "transforms.outbox.route.topic.replacement": "saga.outbox.${routedByValue}",
+
+    "tombstones.on.delete": "false",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+
+    "snapshot.mode": "initial",
+    "heartbeat.interval.ms": "10000",
+    "poll.interval.ms": "100",
+
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true"
+  }
+}

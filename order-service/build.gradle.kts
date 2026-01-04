@@ -22,6 +22,13 @@ dependencies {
 
     // Database
     runtimeOnly("com.h2database:h2")
+    runtimeOnly("org.postgresql:postgresql")
+
+    // Flyway for migrations
+    implementation("org.flywaydb:flyway-core")
+
+    // Kafka
+    implementation("org.springframework.kafka:spring-kafka")
 
     // OpenAPI / Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
