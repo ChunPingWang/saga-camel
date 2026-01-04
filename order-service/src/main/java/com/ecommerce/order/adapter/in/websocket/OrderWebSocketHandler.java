@@ -13,7 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * WebSocket handler for order progress notifications.
- * Stub implementation - TODO: Implement fully in T078
+ * Manages WebSocket sessions per transaction ID and sends real-time status updates.
  */
 public class OrderWebSocketHandler extends TextWebSocketHandler {
 
