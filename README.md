@@ -131,6 +131,7 @@ flowchart LR
 | **語言** | Java | 21 | 主要開發語言 |
 | **框架** | Spring Boot | 3.2.x | 應用程式框架 |
 | **編排引擎** | Apache Camel | 4.x | Saga 流程編排 |
+| **熔斷器** | Resilience4j | 2.2.x | Circuit Breaker 保護下游服務 |
 | **資料庫** | H2 Database | - | 嵌入式資料庫 (事件溯源) |
 | **ORM** | Spring Data JPA | - | 資料存取層 |
 | **即時通訊** | WebSocket | - | 交易狀態即時推送 |
@@ -232,10 +233,12 @@ erDiagram
 
 | Endpoint | 說明 |
 |----------|------|
-| `/actuator/health` | 健康檢查 |
+| `/actuator/health` | 健康檢查 (含 Circuit Breaker 狀態) |
 | `/actuator/info` | 應用程式資訊 |
 | `/actuator/metrics` | 指標數據 |
 | `/actuator/prometheus` | Prometheus 格式指標 |
+| `/actuator/circuitbreakers` | Circuit Breaker 狀態總覽 |
+| `/actuator/circuitbreakerevents` | Circuit Breaker 事件記錄 |
 
 ### 下游服務 API
 
@@ -435,6 +438,12 @@ sequenceDiagram
 - 結構化日誌 (txId 關聯)
 - Prometheus 格式輸出
 - Spring Boot Actuator 健康檢查
+
+### 9. Circuit Breaker (熔斷器)
+- Resilience4j 實現下游服務保護
+- 獨立熔斷器 (CREDIT_CARD、INVENTORY、LOGISTICS)
+- 自動狀態轉移 (CLOSED → OPEN → HALF_OPEN)
+- 熔斷時快速失敗，不發送 HTTP 請求
 
 ---
 
@@ -779,6 +788,144 @@ sequenceDiagram
 │                 /───────────────\ - Service, Controller, Adapter │
 │                /                 \                               │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Circuit Breaker 整合
+
+本專案使用 Resilience4j 實現 Circuit Breaker 模式，保護下游服務呼叫，防止級聯故障。
+
+### 狀態轉移圖
+
+```mermaid
+stateDiagram-v2
+    [*] --> CLOSED
+    CLOSED --> OPEN : 失敗率 > 50%
+    OPEN --> HALF_OPEN : 等待 30 秒
+    HALF_OPEN --> CLOSED : 探測成功
+    HALF_OPEN --> OPEN : 探測失敗
+```
+
+### 配置參數
+
+| 參數 | 值 | 說明 |
+|------|-----|------|
+| `failure-rate-threshold` | 50% | 失敗率超過此閾值時開啟熔斷 |
+| `sliding-window-size` | 10 | 評估最近 N 次呼叫 |
+| `minimum-number-of-calls` | 5 | 至少 N 次呼叫後才評估 |
+| `wait-duration-in-open-state` | 30s | OPEN 狀態等待時間 |
+| `permitted-number-of-calls-in-half-open-state` | 3 | HALF_OPEN 狀態允許的探測次數 |
+| `slow-call-rate-threshold` | 50% | 慢呼叫比例閾值 |
+| `slow-call-duration-threshold` | 10s | 慢呼叫時間閾值 |
+
+### 服務熔斷器
+
+每個下游服務有獨立的 Circuit Breaker instance：
+
+| 服務 | Circuit Breaker Name | 用途 |
+|------|---------------------|------|
+| Credit Card | `CREDIT_CARD` | 保護付款服務呼叫 |
+| Inventory | `INVENTORY` | 保護庫存服務呼叫 |
+| Logistics | `LOGISTICS` | 保護物流服務呼叫 |
+
+### 監控 Circuit Breaker
+
+```bash
+# 查看健康狀態 (含 Circuit Breaker)
+curl http://localhost:8080/actuator/health
+
+# 查看所有 Circuit Breaker 狀態
+curl http://localhost:8080/actuator/circuitbreakers
+
+# 查看特定 Circuit Breaker 狀態
+curl http://localhost:8080/actuator/circuitbreakers/CREDIT_CARD
+
+# 查看 Circuit Breaker 事件記錄
+curl http://localhost:8080/actuator/circuitbreakerevents
+
+# 查看特定 Circuit Breaker 的事件
+curl http://localhost:8080/actuator/circuitbreakerevents/CREDIT_CARD
+```
+
+### 回應範例
+
+**健康檢查 (含 Circuit Breaker 狀態)**
+```json
+{
+  "status": "UP",
+  "components": {
+    "circuitBreakers": {
+      "status": "UP",
+      "details": {
+        "CREDIT_CARD": {
+          "status": "UP",
+          "details": {
+            "state": "CLOSED",
+            "failureRate": "-1.0%",
+            "slowCallRate": "-1.0%",
+            "bufferedCalls": 0,
+            "failedCalls": 0
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Circuit Breaker 狀態**
+```json
+{
+  "circuitBreakers": {
+    "CREDIT_CARD": {
+      "state": "CLOSED",
+      "failureRateThreshold": 50.0,
+      "slowCallRateThreshold": 50.0,
+      "bufferedCalls": 5,
+      "failedCalls": 1,
+      "slowCalls": 0,
+      "notPermittedCalls": 0
+    }
+  }
+}
+```
+
+### 熔斷時的行為
+
+當 Circuit Breaker 處於 OPEN 狀態時：
+
+1. **不發送 HTTP 請求** - 直接返回失敗回應
+2. **快速失敗** - 避免等待超時
+3. **日誌記錄** - 記錄 WARN 級別日誌
+4. **回應訊息** - 返回 "Circuit breaker is OPEN for {服務名稱}"
+
+```
+WARN - txId=xxx - Circuit breaker OPEN for service CREDIT_CARD, skipping HTTP call
+```
+
+### 與 Saga 的整合
+
+Circuit Breaker 與 Saga 回滾機制無縫整合：
+
+1. **notify 失敗 (CB OPEN)** → 視為服務失敗 → 觸發已完成服務的回滾
+2. **rollback 失敗 (CB OPEN)** → 重試機制生效 → 最終通知管理員
+
+```mermaid
+sequenceDiagram
+    participant O as Order Service
+    participant CB as Circuit Breaker
+    participant S as 下游服務
+
+    O->>CB: notify(CREDIT_CARD)
+    alt Circuit Breaker CLOSED
+        CB->>S: HTTP POST /notify
+        S-->>CB: Response
+        CB-->>O: Success/Failure
+    else Circuit Breaker OPEN
+        CB-->>O: Failure (快速失敗)
+        Note over O: 觸發回滾流程
+    end
 ```
 
 ---
