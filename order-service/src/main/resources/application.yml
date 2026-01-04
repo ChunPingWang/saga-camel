@@ -41,7 +41,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,camel
+        include: health,info,metrics,prometheus,camel,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
       show-details: always
@@ -55,6 +55,8 @@ management:
     diskspace:
       enabled: true
     camel:
+      enabled: true
+    circuitbreakers:
       enabled: true
   metrics:
     export:
@@ -94,6 +96,28 @@ saga:
     poll-interval-ms: 1000
   checker:
     poll-interval-ms: 5000
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 10s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        register-health-indicator: true
+    instances:
+      CREDIT_CARD:
+        base-config: default
+      INVENTORY:
+        base-config: default
+      LOGISTICS:
+        base-config: default
 
 # Downstream Services
 services:
