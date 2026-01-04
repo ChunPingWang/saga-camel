@@ -6,9 +6,15 @@ import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.order.application.port.out.ServiceClientPort;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.decorators.Decorators;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -19,9 +25,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.function.Supplier;
+
 /**
  * HTTP adapter for downstream service communication.
- * Implements ServiceClientPort using RestTemplate with Circuit Breaker protection.
+ * Implements ServiceClientPort using RestTemplate with Resilience4j protection.
+ *
+ * Decorator order: Bulkhead -> Retry -> CircuitBreaker -> HTTP Call
  */
 @Component
 public class ServiceClientAdapter implements ServiceClientPort {
@@ -30,10 +40,18 @@ public class ServiceClientAdapter implements ServiceClientPort {
 
     private final RestTemplate restTemplate;
     private final CircuitBreakerRegistry circuitBreakerRegistry;
+    private final RetryRegistry retryRegistry;
+    private final BulkheadRegistry bulkheadRegistry;
 
-    public ServiceClientAdapter(RestTemplate restTemplate, CircuitBreakerRegistry circuitBreakerRegistry) {
+    public ServiceClientAdapter(
+            RestTemplate restTemplate,
+            CircuitBreakerRegistry circuitBreakerRegistry,
+            RetryRegistry retryRegistry,
+            BulkheadRegistry bulkheadRegistry) {
         this.restTemplate = restTemplate;
         this.circuitBreakerRegistry = circuitBreakerRegistry;
+        this.retryRegistry = retryRegistry;
+        this.bulkheadRegistry = bulkheadRegistry;
     }
 
     @Override
@@ -45,17 +63,34 @@ public class ServiceClientAdapter implements ServiceClientPort {
     @Override
     public NotifyResponse notify(ServiceName serviceName, NotifyRequest request) {
         String notifyUrl = serviceName.getDefaultNotifyUrl();
-        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(serviceName.name());
+        String instanceName = serviceName.name();
+
+        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(instanceName);
+        Retry retry = retryRegistry.retry(instanceName);
+        Bulkhead bulkhead = bulkheadRegistry.bulkhead(instanceName);
+
+        Supplier<NotifyResponse> decoratedSupplier = Decorators
+                .ofSupplier(() -> executeNotify(notifyUrl, request))
+                .withBulkhead(bulkhead)
+                .withRetry(retry)
+                .withCircuitBreaker(circuitBreaker)
+                .decorate();
 
         try {
-            return circuitBreaker.executeSupplier(() -> executeNotify(notifyUrl, request));
+            return decoratedSupplier.get();
         } catch (CallNotPermittedException e) {
             log.warn("txId={} - Circuit breaker OPEN for service {}, skipping HTTP call",
                     request.txId(), serviceName);
             return NotifyResponse.failure(request.txId(),
                     "Circuit breaker is OPEN for " + serviceName.getDisplayName());
+        } catch (BulkheadFullException e) {
+            log.warn("txId={} - Bulkhead full for service {}, rejecting call",
+                    request.txId(), serviceName);
+            return NotifyResponse.failure(request.txId(),
+                    "Service " + serviceName.getDisplayName() + " is overloaded");
         } catch (RestClientException e) {
-            log.error("txId={} - Notify failed for {}: {}", request.txId(), notifyUrl, e.getMessage());
+            log.error("txId={} - Notify failed for {} after retries: {}",
+                    request.txId(), notifyUrl, e.getMessage());
             return NotifyResponse.failure(request.txId(), "Service call failed: " + e.getMessage());
         }
     }
@@ -63,23 +98,40 @@ public class ServiceClientAdapter implements ServiceClientPort {
     @Override
     public RollbackResponse rollback(ServiceName serviceName, RollbackRequest request) {
         String rollbackUrl = serviceName.getDefaultRollbackUrl();
-        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(serviceName.name());
+        String instanceName = serviceName.name();
+
+        CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(instanceName);
+        Retry retry = retryRegistry.retry(instanceName);
+        Bulkhead bulkhead = bulkheadRegistry.bulkhead(instanceName);
+
+        Supplier<RollbackResponse> decoratedSupplier = Decorators
+                .ofSupplier(() -> executeRollback(rollbackUrl, request))
+                .withBulkhead(bulkhead)
+                .withRetry(retry)
+                .withCircuitBreaker(circuitBreaker)
+                .decorate();
 
         try {
-            return circuitBreaker.executeSupplier(() -> executeRollback(rollbackUrl, request));
+            return decoratedSupplier.get();
         } catch (CallNotPermittedException e) {
             log.warn("txId={} - Circuit breaker OPEN for service {} rollback, skipping HTTP call",
                     request.txId(), serviceName);
             return RollbackResponse.failure(request.txId(),
                     "Circuit breaker is OPEN for " + serviceName.getDisplayName() + " rollback");
+        } catch (BulkheadFullException e) {
+            log.warn("txId={} - Bulkhead full for service {} rollback, rejecting call",
+                    request.txId(), serviceName);
+            return RollbackResponse.failure(request.txId(),
+                    "Service " + serviceName.getDisplayName() + " is overloaded");
         } catch (RestClientException e) {
-            log.error("txId={} - Rollback failed for {}: {}", request.txId(), rollbackUrl, e.getMessage());
+            log.error("txId={} - Rollback failed for {} after retries: {}",
+                    request.txId(), rollbackUrl, e.getMessage());
             return RollbackResponse.failure(request.txId(), "Service call failed: " + e.getMessage());
         }
     }
 
     /**
-     * Execute notify HTTP call - throws exception for Circuit Breaker to track.
+     * Execute notify HTTP call - throws exception for resilience decorators to handle.
      */
     private NotifyResponse executeNotify(String notifyUrl, NotifyRequest request) {
         log.info("txId={} - Calling notify endpoint: {}", request.txId(), notifyUrl);
@@ -104,7 +156,7 @@ public class ServiceClientAdapter implements ServiceClientPort {
     }
 
     /**
-     * Execute rollback HTTP call - throws exception for Circuit Breaker to track.
+     * Execute rollback HTTP call - throws exception for resilience decorators to handle.
      */
     private RollbackResponse executeRollback(String rollbackUrl, RollbackRequest request) {
         log.info("txId={} - Calling rollback endpoint: {}", request.txId(), rollbackUrl);
@@ -130,7 +182,7 @@ public class ServiceClientAdapter implements ServiceClientPort {
 
     @Override
     public NotifyResponse notify(String notifyUrl, NotifyRequest request) {
-        log.info("txId={} - Calling notify endpoint: {}", request.txId(), notifyUrl);
+        log.info("txId={} - Calling notify endpoint (direct): {}", request.txId(), notifyUrl);
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -158,7 +210,7 @@ public class ServiceClientAdapter implements ServiceClientPort {
 
     @Override
     public RollbackResponse rollback(String rollbackUrl, RollbackRequest request) {
-        log.info("txId={} - Calling rollback endpoint: {}", request.txId(), rollbackUrl);
+        log.info("txId={} - Calling rollback endpoint (direct): {}", request.txId(), rollbackUrl);
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

@@ -41,7 +41,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,camel,circuitbreakers,circuitbreakerevents
+        include: health,info,metrics,prometheus,camel,circuitbreakers,circuitbreakerevents,retries,retryevents,bulkheads
   endpoint:
     health:
       show-details: always
@@ -97,8 +97,9 @@ saga:
   checker:
     poll-interval-ms: 5000
 
-# Circuit Breaker Configuration
+# Resilience4j Configuration
 resilience4j:
+  # Circuit Breaker - 熔斷器
   circuitbreaker:
     configs:
       default:
@@ -118,6 +119,45 @@ resilience4j:
         base-config: default
       LOGISTICS:
         base-config: default
+
+  # Retry - 重試機制
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+        exponential-max-wait-duration: 10s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+    instances:
+      CREDIT_CARD:
+        base-config: default
+      INVENTORY:
+        base-config: default
+      LOGISTICS:
+        base-config: default
+
+  # Bulkhead - 艙壁隔離 (限制並發)
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 10
+        max-wait-duration: 500ms
+    instances:
+      CREDIT_CARD:
+        base-config: default
+        max-concurrent-calls: 15
+      INVENTORY:
+        base-config: default
+        max-concurrent-calls: 20
+      LOGISTICS:
+        base-config: default
+        max-concurrent-calls: 10
 
 # Downstream Services
 services:

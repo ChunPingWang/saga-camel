@@ -13,9 +13,12 @@ dependencies {
     implementation("org.apache.camel.springboot:camel-http-starter:4.3.0")
     implementation("org.apache.camel.springboot:camel-jackson-starter:4.3.0")
 
-    // Resilience4j Circuit Breaker
+    // Resilience4j (Circuit Breaker, Retry, Bulkhead)
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-retry:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-bulkhead:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-all:2.2.0")
 
     // Database
     runtimeOnly("com.h2database:h2")

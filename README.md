@@ -439,11 +439,12 @@ sequenceDiagram
 - Prometheus 格式輸出
 - Spring Boot Actuator 健康檢查
 
-### 9. Circuit Breaker (熔斷器)
-- Resilience4j 實現下游服務保護
-- 獨立熔斷器 (CREDIT_CARD、INVENTORY、LOGISTICS)
-- 自動狀態轉移 (CLOSED → OPEN → HALF_OPEN)
-- 熔斷時快速失敗，不發送 HTTP 請求
+### 9. Resilience4j 彈性套件
+- **Circuit Breaker** - 熔斷保護，防止級聯故障
+- **Retry** - 自動重試暫時性故障 (指數退避)
+- **Bulkhead** - 艙壁隔離，限制並發數
+- 獨立 instance (CREDIT_CARD、INVENTORY、LOGISTICS)
+- Grafana Dashboard 視覺化監控
 
 ---
 
@@ -927,6 +928,123 @@ sequenceDiagram
         Note over O: 觸發回滾流程
     end
 ```
+
+---
+
+## Retry 機制
+
+Resilience4j Retry 提供自動重試功能，處理暫時性故障。
+
+### 配置參數
+
+| 參數 | 值 | 說明 |
+|------|-----|------|
+| `max-attempts` | 3 | 最大嘗試次數 (含首次) |
+| `wait-duration` | 1s | 重試間隔 |
+| `exponential-backoff-multiplier` | 2 | 指數退避乘數 |
+| `exponential-max-wait-duration` | 10s | 最大等待時間 |
+
+### 重試例外
+
+僅對以下例外進行重試：
+- `ResourceAccessException` - 連線失敗
+- `ConnectException` - 無法連線
+- `SocketTimeoutException` - 連線逾時
+
+HTTP 4xx 錯誤 (`HttpClientErrorException`) 不會重試。
+
+### 監控 Retry
+
+```bash
+# 查看 Retry 狀態
+curl http://localhost:8080/actuator/retries
+
+# 查看 Retry 事件
+curl http://localhost:8080/actuator/retryevents
+```
+
+---
+
+## Bulkhead 艙壁隔離
+
+Bulkhead 模式限制並發呼叫數，防止單一服務耗盡所有資源。
+
+### 配置參數
+
+| 服務 | max-concurrent-calls | max-wait-duration |
+|------|---------------------|-------------------|
+| CREDIT_CARD | 15 | 500ms |
+| INVENTORY | 20 | 500ms |
+| LOGISTICS | 10 | 500ms |
+
+### 行為說明
+
+- 當並發數達到上限時，新請求等待最多 500ms
+- 等待超時後拋出 `BulkheadFullException`
+- 返回 "Service {name} is overloaded" 錯誤
+
+### 監控 Bulkhead
+
+```bash
+# 查看 Bulkhead 狀態
+curl http://localhost:8080/actuator/bulkheads
+```
+
+---
+
+## Resilience4j 裝飾器順序
+
+下游服務呼叫的保護順序：
+
+```
+Request → Bulkhead → Retry → CircuitBreaker → HTTP Call
+```
+
+1. **Bulkhead** - 限制並發，防止資源耗盡
+2. **Retry** - 自動重試暫時性故障
+3. **CircuitBreaker** - 熔斷保護，快速失敗
+
+---
+
+## Grafana Dashboard
+
+專案提供預設的 Grafana Dashboard 配置，監控 Resilience4j 指標。
+
+### 匯入 Dashboard
+
+```bash
+# Dashboard 檔案位置
+monitoring/grafana/dashboards/resilience4j-dashboard.json
+```
+
+1. 開啟 Grafana → Dashboards → Import
+2. 上傳 JSON 檔案
+3. 選擇 Prometheus 資料來源
+
+### Dashboard Panels
+
+| Panel | 說明 |
+|-------|------|
+| Circuit Breaker State | 各服務熔斷器狀態 |
+| Failure Rate | 失敗率趨勢圖 |
+| Retry Events | 重試事件統計 |
+| Bulkhead Gauges | 可用並發數儀表 |
+| Saga Duration | 交易延遲 p95/p99 |
+
+### Prometheus 指標範例
+
+```promql
+# Circuit Breaker 狀態
+resilience4j_circuitbreaker_state{name="CREDIT_CARD"}
+
+# Retry 成功率
+rate(resilience4j_retry_calls_total{kind="successful_without_retry"}[5m])
+
+# Bulkhead 使用率
+resilience4j_bulkhead_available_concurrent_calls{name="CREDIT_CARD"}
+```
+
+詳細說明請參考 [monitoring/README.md](monitoring/README.md)。
 
 ---
 

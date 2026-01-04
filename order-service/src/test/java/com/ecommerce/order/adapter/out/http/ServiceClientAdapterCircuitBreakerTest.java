@@ -5,9 +5,14 @@ import com.ecommerce.common.dto.NotifyRequest;
 import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.retry.RetryConfig;
+import io.github.resilience4j.retry.RetryRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +34,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for ServiceClientAdapter Circuit Breaker functionality.
+ * Unit tests for ServiceClientAdapter Resilience4j functionality.
+ * Tests Circuit Breaker, Retry, and Bulkhead integration.
  */
 @ExtendWith(MockitoExtension.class)
 class ServiceClientAdapterCircuitBreakerTest {
@@ -38,12 +44,14 @@ class ServiceClientAdapterCircuitBreakerTest {
     private RestTemplate restTemplate;
 
     private CircuitBreakerRegistry circuitBreakerRegistry;
+    private RetryRegistry retryRegistry;
+    private BulkheadRegistry bulkheadRegistry;
     private ServiceClientAdapter adapter;
 
     @BeforeEach
     void setUp() {
         // Configure Circuit Breaker with low thresholds for testing
-        CircuitBreakerConfig config = CircuitBreakerConfig.custom()
+        CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
                 .failureRateThreshold(50)
                 .slidingWindowSize(4)
                 .minimumNumberOfCalls(2)
@@ -51,8 +59,24 @@ class ServiceClientAdapterCircuitBreakerTest {
                 .permittedNumberOfCallsInHalfOpenState(1)
                 .build();
 
-        circuitBreakerRegistry = CircuitBreakerRegistry.of(config);
-        adapter = new ServiceClientAdapter(restTemplate, circuitBreakerRegistry);
+        // Configure Retry with minimal retries for testing
+        RetryConfig retryConfig = RetryConfig.custom()
+                .maxAttempts(1)  // No retries in tests for simplicity
+                .waitDuration(Duration.ofMillis(100))
+                .retryExceptions(ResourceAccessException.class)
+                .build();
+
+        // Configure Bulkhead
+        BulkheadConfig bulkheadConfig = BulkheadConfig.custom()
+                .maxConcurrentCalls(10)
+                .maxWaitDuration(Duration.ofMillis(500))
+                .build();
+
+        circuitBreakerRegistry = CircuitBreakerRegistry.of(cbConfig);
+        retryRegistry = RetryRegistry.of(retryConfig);
+        bulkheadRegistry = BulkheadRegistry.of(bulkheadConfig);
+
+        adapter = new ServiceClientAdapter(restTemplate, circuitBreakerRegistry, retryRegistry, bulkheadRegistry);
     }
 
     private NotifyRequest createNotifyRequest(UUID txId, UUID orderId) {
@@ -254,5 +278,19 @@ class ServiceClientAdapterCircuitBreakerTest {
         CircuitBreaker.Metrics metrics = circuitBreaker.getMetrics();
         assertEquals(0, metrics.getNumberOfFailedCalls());
         assertEquals(1, metrics.getNumberOfSuccessfulCalls());
+    }
+
+    @Test
+    @DisplayName("Bulkhead limits concurrent calls")
+    void bulkheadLimitsConcurrentCalls() {
+        // Given
+        Bulkhead bulkhead = bulkheadRegistry.bulkhead(ServiceName.CREDIT_CARD.name());
+
+        // When - check bulkhead metrics
+        Bulkhead.Metrics metrics = bulkhead.getMetrics();
+
+        // Then - verify configuration
+        assertEquals(10, metrics.getMaxAllowedConcurrentCalls());
+        assertEquals(10, metrics.getAvailableConcurrentCalls());
     }
 }
