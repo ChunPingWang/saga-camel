@@ -1,0 +1,79 @@
+{
+  "type": "record",
+  "name": "SagaResponse",
+  "namespace": "com.ecommerce.common.avro",
+  "doc": "Response message from downstream services to Saga Orchestrator",
+  "fields": [
+    {
+      "name": "txId",
+      "type": "string",
+      "doc": "Transaction ID (UUID format)"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Order ID (UUID format)"
+    },
+    {
+      "name": "serviceName",
+      "type": {
+        "type": "enum",
+        "name": "ServiceName",
+        "symbols": ["CREDIT_CARD", "INVENTORY", "LOGISTICS"]
+      },
+      "doc": "Service that processed the command"
+    },
+    {
+      "name": "responseType",
+      "type": {
+        "type": "enum",
+        "name": "ResponseType",
+        "symbols": ["EXECUTE_SUCCESS", "EXECUTE_FAILURE", "ROLLBACK_SUCCESS", "ROLLBACK_FAILURE"]
+      },
+      "doc": "Type of response indicating operation result"
+    },
+    {
+      "name": "success",
+      "type": "boolean",
+      "doc": "Whether the operation was successful"
+    },
+    {
+      "name": "message",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Human-readable message describing the result"
+    },
+    {
+      "name": "serviceReference",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Service-specific reference ID for successful operations (e.g., payment ID, reservation ID)"
+    },
+    {
+      "name": "errorCode",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Error code for failed operations"
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Response timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "processingTimeMs",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "Time taken to process the command in milliseconds"
+    },
+    {
+      "name": "correlationId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Correlation ID for tracing across services"
+    }
+  ]
+}

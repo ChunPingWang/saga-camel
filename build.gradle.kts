@@ -10,6 +10,10 @@ allprojects {
 
     repositories {
         mavenCentral()
+        // Confluent repository for Kafka Avro serializer
+        maven {
+            url = uri("https://packages.confluent.io/maven/")
+        }
     }
 }
 

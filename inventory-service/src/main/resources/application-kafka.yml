@@ -1,0 +1,26 @@
+# Kafka Profile Configuration for Inventory Service
+# Usage: --spring.profiles.active=kafka
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: inventory-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      retries: 3
+
+saga:
+  kafka:
+    enabled: true
+    topics:
+      inventory-commands: saga.inventory.commands
+      inventory-responses: saga.inventory.responses
+
+logging:
+  level:
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO
+    com.ecommerce.inventory.infrastructure.kafka: DEBUG

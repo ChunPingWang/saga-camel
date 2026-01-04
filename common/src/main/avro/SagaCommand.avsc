@@ -1,0 +1,67 @@
+{
+  "type": "record",
+  "name": "SagaCommand",
+  "namespace": "com.ecommerce.common.avro",
+  "doc": "Command message sent from Saga Orchestrator to downstream services",
+  "fields": [
+    {
+      "name": "txId",
+      "type": "string",
+      "doc": "Transaction ID (UUID format)"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Order ID (UUID format)"
+    },
+    {
+      "name": "commandType",
+      "type": {
+        "type": "enum",
+        "name": "CommandType",
+        "symbols": ["EXECUTE", "ROLLBACK"]
+      },
+      "doc": "Type of command: EXECUTE for forward operation, ROLLBACK for compensation"
+    },
+    {
+      "name": "serviceName",
+      "type": {
+        "type": "enum",
+        "name": "ServiceName",
+        "symbols": ["CREDIT_CARD", "INVENTORY", "LOGISTICS"]
+      },
+      "doc": "Target service for this command"
+    },
+    {
+      "name": "payload",
+      "type": "string",
+      "doc": "JSON-encoded payload containing command-specific data"
+    },
+    {
+      "name": "serviceReference",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Reference ID from previous successful execution (used for rollback)"
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Command creation timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "retryCount",
+      "type": "int",
+      "default": 0,
+      "doc": "Number of retry attempts for this command"
+    },
+    {
+      "name": "correlationId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Correlation ID for tracing across services"
+    }
+  ]
+}

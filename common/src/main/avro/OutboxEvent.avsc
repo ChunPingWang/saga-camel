@@ -1,0 +1,73 @@
+{
+  "type": "record",
+  "name": "OutboxEvent",
+  "namespace": "com.ecommerce.common.avro",
+  "doc": "Outbox event captured by Debezium CDC from PostgreSQL",
+  "fields": [
+    {
+      "name": "id",
+      "type": "long",
+      "doc": "Unique event ID from database sequence"
+    },
+    {
+      "name": "aggregateType",
+      "type": "string",
+      "doc": "Type of aggregate (e.g., 'order', 'saga')"
+    },
+    {
+      "name": "aggregateId",
+      "type": "string",
+      "doc": "ID of the aggregate (typically orderId or txId)"
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "OutboxEventType",
+        "symbols": [
+          "SAGA_STARTED",
+          "SAGA_STEP_STARTED",
+          "SAGA_STEP_COMPLETED",
+          "SAGA_STEP_FAILED",
+          "SAGA_COMPLETED",
+          "SAGA_ROLLBACK_STARTED",
+          "SAGA_ROLLBACK_COMPLETED",
+          "SAGA_ROLLBACK_FAILED"
+        ]
+      },
+      "doc": "Type of saga event"
+    },
+    {
+      "name": "txId",
+      "type": "string",
+      "doc": "Transaction ID (UUID format)"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Order ID (UUID format)"
+    },
+    {
+      "name": "payload",
+      "type": "string",
+      "doc": "JSON-encoded event payload"
+    },
+    {
+      "name": "createdAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event creation timestamp"
+    },
+    {
+      "name": "metadata",
+      "type": ["null", {
+        "type": "map",
+        "values": "string"
+      }],
+      "default": null,
+      "doc": "Additional metadata for the event"
+    }
+  ]
+}

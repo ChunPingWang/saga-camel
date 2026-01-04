@@ -1,0 +1,26 @@
+# Kafka Profile Configuration for Logistics Service
+# Usage: --spring.profiles.active=kafka
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: logistics-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+      retries: 3
+
+saga:
+  kafka:
+    enabled: true
+    topics:
+      logistics-commands: saga.logistics.commands
+      logistics-responses: saga.logistics.responses
+
+logging:
+  level:
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO
+    com.ecommerce.logistics.infrastructure.kafka: DEBUG
