@@ -2,9 +2,9 @@
 # Usage: --spring.profiles.active=kafka
 
 spring:
-  # PostgreSQL Database
+  # PostgreSQL Database (port 15432 to avoid conflict with local PostgreSQL)
   datasource:
-    url: jdbc:postgresql://localhost:5432/sagadb
+    url: jdbc:postgresql://localhost:15432/sagadb
     username: saga
     password: saga_password
     driver-class-name: org.postgresql.Driver
@@ -14,6 +14,11 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
+
+  # Disable H2 schema.sql (use Flyway instead for PostgreSQL)
+  sql:
+    init:
+      mode: never
 
   # Flyway Migration
   flyway:
