@@ -18,19 +18,22 @@ CREATE INDEX IF NOT EXISTS idx_tx_service_status ON transaction_log (tx_id, serv
 CREATE INDEX IF NOT EXISTS idx_status_created ON transaction_log (status, created_at);
 CREATE INDEX IF NOT EXISTS idx_order_id ON transaction_log (order_id);
 
--- Outbox Event - For transactional outbox pattern
+-- Outbox Event - For transactional outbox pattern (CDC compatible)
 CREATE TABLE IF NOT EXISTS outbox_event (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    aggregatetype   VARCHAR(100) NOT NULL,
+    aggregateid     VARCHAR(36) NOT NULL,
+    type            VARCHAR(100) NOT NULL,
+    payload         CLOB NOT NULL,
     tx_id           VARCHAR(36) NOT NULL,
     order_id        VARCHAR(36) NOT NULL,
-    event_type      VARCHAR(100) NOT NULL,
-    payload         CLOB NOT NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed       BOOLEAN NOT NULL DEFAULT FALSE,
     processed_at    TIMESTAMP NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_processed ON outbox_event (processed, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_aggregate ON outbox_event (aggregatetype, aggregateid);
 
 -- Saga Configuration - Runtime configuration for service order and timeouts
 CREATE TABLE IF NOT EXISTS saga_config (

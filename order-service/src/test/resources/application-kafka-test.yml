@@ -1,0 +1,46 @@
+# Kafka Test Profile Configuration
+# Used by Testcontainers integration tests
+
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+
+  flyway:
+    enabled: false
+
+  kafka:
+    consumer:
+      group-id: saga-orchestrator-test
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      acks: all
+    listener:
+      ack-mode: manual
+    admin:
+      auto-create: false
+
+saga:
+  messaging:
+    type: kafka
+  kafka:
+    enabled: true
+    topics:
+      outbox-events: saga.outbox.events
+      credit-card-commands: saga.credit-card.commands
+      credit-card-responses: saga.credit-card.responses
+      inventory-commands: saga.inventory.commands
+      inventory-responses: saga.inventory.responses
+      logistics-commands: saga.logistics.commands
+      logistics-responses: saga.logistics.responses
+      dlq: saga.dlq
+      auto-create: false
+
+logging:
+  level:
+    org.testcontainers: INFO
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO
+    com.ecommerce: DEBUG
