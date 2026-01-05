@@ -2,6 +2,57 @@
 
 電子商務 Saga 編排系統 - 使用 Saga 模式實現分散式交易的自動補償機制。
 
+---
+
+## 🌿 分支說明
+
+本專案提供兩種不同的實作方式，請依需求切換分支查看：
+
+| 分支 | 通訊方式 | 說明 | 切換指令 |
+|------|----------|------|----------|
+| **`main`** | HTTP 同步 | 原始設計，使用 HTTP REST 呼叫下游服務 | `git checkout main` |
+| **`feature/kafka-cdc`** (目前分支) | Kafka 非同步 | 進階設計，使用 Kafka + Debezium CDC 實現事件驅動架構 | `git checkout feature/kafka-cdc` |
+
+### 📌 本分支：`feature/kafka-cdc` - Kafka CDC 非同步通訊
+
+此分支實作 **Kafka + Debezium CDC** 的事件驅動 Saga 編排模式：
+
+- **通訊方式**：透過 Kafka 訊息佇列進行非同步通訊，使用 Debezium 捕獲資料變更
+- **優點**：高可用性、可擴展性、服務解耦、支援重試與回放
+- **適用場景**：高吞吐量、服務數量多、需要事件溯源的場景
+- **技術棧**：Spring Boot + Apache Camel + Kafka + Debezium + PostgreSQL
+
+```
+Order Service ──Kafka──> Credit Card Service
+     │                         │
+     │        Debezium         │
+     └──CDC──> Outbox ──CDC────┘
+
+Order Service ──Kafka──> Inventory Service
+Order Service ──Kafka──> Logistics Service
+```
+
+### 🔧 Kafka CDC 額外元件
+
+此分支需要額外的基礎設施：
+
+```bash
+# 啟動 Kafka CDC 基礎設施
+docker-compose -f docker/docker-compose.kafka.yml up -d
+```
+
+| 元件 | 端口 | 說明 |
+|------|------|------|
+| Kafka | 9092 | 訊息佇列 |
+| Zookeeper | 2181 | Kafka 協調服務 |
+| Schema Registry | 8081 | Avro Schema 管理 |
+| Debezium Connect | 8083 | CDC 連接器 |
+| PostgreSQL | 5432 | 支援 CDC 的資料庫 |
+
+> 💡 若需查看 **HTTP 同步版本**（較簡單的實作），請執行：`git checkout main`
+
+---
+
 ## 專案狀態
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
