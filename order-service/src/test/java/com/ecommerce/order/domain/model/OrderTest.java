@@ -132,5 +132,40 @@ class OrderTest {
             // Then
             assertEquals(new BigDecimal("30.00"), lineTotal);
         }
+
+        @Test
+        @DisplayName("should throw exception when productId is null")
+        void shouldThrowExceptionWhenProductIdIsNull() {
+            assertThrows(NullPointerException.class, () ->
+                    new OrderItem(null, "Widget", 1, new BigDecimal("10.00"))
+            );
+        }
+
+        @Test
+        @DisplayName("should throw exception when quantity is less than 1")
+        void shouldThrowExceptionWhenQuantityIsLessThanOne() {
+            assertThrows(IllegalArgumentException.class, () ->
+                    new OrderItem("PROD-001", "Widget", 0, new BigDecimal("10.00"))
+            );
+        }
+
+        @Test
+        @DisplayName("should throw exception when price is null")
+        void shouldThrowExceptionWhenPriceIsNull() {
+            assertThrows(NullPointerException.class, () ->
+                    new OrderItem("PROD-001", "Widget", 1, null)
+            );
+        }
+
+        @Test
+        @DisplayName("should throw exception when price is zero or negative")
+        void shouldThrowExceptionWhenPriceIsZeroOrNegative() {
+            assertThrows(IllegalArgumentException.class, () ->
+                    new OrderItem("PROD-001", "Widget", 1, BigDecimal.ZERO)
+            );
+            assertThrows(IllegalArgumentException.class, () ->
+                    new OrderItem("PROD-001", "Widget", 1, new BigDecimal("-5.00"))
+            );
+        }
     }
 }
