@@ -347,9 +347,9 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Load Testing (SC-002)
 
-- [ ] T135 [P] Add Gatling dependency to `order-service/build.gradle.kts` for load testing
-- [ ] T136 [P] Create Gatling load test for 100 orders/sec in `order-service/src/test/scala/com/ecommerce/order/loadtest/OrderLoadTest.scala`
-- [ ] T137 Run load test and document results in `specs/001-saga-orchestration/load-test-results.md`
+- [x] T135 [P] Add Gatling dependency to `order-service/build.gradle.kts` for load testing
+- [x] T136 [P] Create Gatling load test for 100 orders/sec in `order-service/src/gatling/scala/com/ecommerce/order/loadtest/OrderLoadTest.scala`
+- [x] T137 Create load test documentation template in `specs/001-saga-orchestration/load-test-results.md`
 
 ### Availability Monitoring (SC-009)
 

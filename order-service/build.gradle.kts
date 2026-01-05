@@ -1,3 +1,8 @@
+plugins {
+    scala
+    id("io.gatling.gradle") version "3.10.3.2"
+}
+
 dependencies {
     implementation(project(":common"))
 
@@ -46,4 +51,13 @@ dependencies {
     testImplementation("org.testcontainers:kafka:1.19.3")
     testImplementation("org.testcontainers:postgresql:1.19.3")
     testImplementation("org.springframework.kafka:spring-kafka-test")
+
+    // Gatling for load testing
+    gatling("io.gatling.highcharts:gatling-charts-highcharts:3.10.3")
+    gatling("io.gatling:gatling-http:3.10.3")
+}
+
+gatling {
+    // Gatling configuration
+    logLevel = "WARN"
 }
