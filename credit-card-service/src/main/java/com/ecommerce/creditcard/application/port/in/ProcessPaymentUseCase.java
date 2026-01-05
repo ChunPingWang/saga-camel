@@ -1,16 +1,18 @@
 package com.ecommerce.creditcard.application.port.in;
 
+import com.ecommerce.creditcard.domain.model.Payment;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 
 /**
- * Input port for processing credit card payments.
+ * Use case port for processing credit card payments.
  */
 public interface ProcessPaymentUseCase {
 
     /**
-     * Process a credit card payment.
-     * Idempotent - same txId will return same result.
+     * Process a payment for the given notification request.
+     *
+     * @param request the notification request containing payment details
+     * @return the processed payment
      */
-    NotifyResponse processPayment(NotifyRequest request);
+    Payment processPayment(NotifyRequest request);
 }

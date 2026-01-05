@@ -2,12 +2,11 @@ package com.ecommerce.logistics.adapter.in.web;
 
 import com.ecommerce.common.dto.NotifyRequest;
 import com.ecommerce.common.dto.NotifyResponse;
-import com.ecommerce.common.dto.RollbackRequest;
-import com.ecommerce.common.dto.RollbackResponse;
-import com.ecommerce.logistics.application.port.in.RollbackShipmentUseCase;
 import com.ecommerce.logistics.application.port.in.ScheduleShipmentUseCase;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.ecommerce.logistics.domain.model.Shipment;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,29 +18,47 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/logistics")
-@Tag(name = "Logistics", description = "Shipment scheduling operations")
 public class LogisticsController {
 
+    private static final Logger log = LoggerFactory.getLogger(LogisticsController.class);
+
     private final ScheduleShipmentUseCase scheduleShipmentUseCase;
-    private final RollbackShipmentUseCase rollbackShipmentUseCase;
 
-    public LogisticsController(ScheduleShipmentUseCase scheduleShipmentUseCase,
-                               RollbackShipmentUseCase rollbackShipmentUseCase) {
+    public LogisticsController(ScheduleShipmentUseCase scheduleShipmentUseCase) {
         this.scheduleShipmentUseCase = scheduleShipmentUseCase;
-        this.rollbackShipmentUseCase = rollbackShipmentUseCase;
     }
 
+    /**
+     * Schedule shipment notification from the saga orchestrator.
+     *
+     * @param request the notify request containing order details
+     * @return the notify response with shipment result
+     */
     @PostMapping("/notify")
-    @Operation(summary = "Schedule shipment", description = "Schedule a shipment for an order (idempotent)")
-    public ResponseEntity<NotifyResponse> notify(@RequestBody NotifyRequest request) {
-        NotifyResponse response = scheduleShipmentUseCase.scheduleShipment(request);
-        return ResponseEntity.ok(response);
-    }
+    public ResponseEntity<NotifyResponse> notify(@Valid @RequestBody NotifyRequest request) {
+        log.info("Received logistics notification for txId={}", request.txId());
 
-    @PostMapping("/rollback")
-    @Operation(summary = "Cancel shipment", description = "Cancel a scheduled shipment (idempotent)")
-    public ResponseEntity<RollbackResponse> rollback(@RequestBody RollbackRequest request) {
-        RollbackResponse response = rollbackShipmentUseCase.cancelShipment(request);
-        return ResponseEntity.ok(response);
+        try {
+            Shipment shipment = scheduleShipmentUseCase.scheduleShipment(request);
+
+            if (shipment.isScheduled()) {
+                return ResponseEntity.ok(NotifyResponse.success(
+                        request.txId(),
+                        "Shipment scheduled, tracking: " + shipment.getTrackingNumber(),
+                        shipment.getTrackingNumber()
+                ));
+            } else {
+                return ResponseEntity.ok(NotifyResponse.failure(
+                        request.txId(),
+                        "Shipment scheduling failed: " + shipment.getStatus()
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Shipment scheduling failed for txId={}: {}", request.txId(), e.getMessage(), e);
+            return ResponseEntity.ok(NotifyResponse.failure(
+                    request.txId(),
+                    "Shipment scheduling error: " + e.getMessage()
+            ));
+        }
     }
 }

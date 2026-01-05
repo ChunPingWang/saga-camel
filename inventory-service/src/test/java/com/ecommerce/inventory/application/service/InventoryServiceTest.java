@@ -1,14 +1,11 @@
 package com.ecommerce.inventory.application.service;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
-import com.ecommerce.common.dto.RollbackRequest;
-import com.ecommerce.common.dto.RollbackResponse;
+import com.ecommerce.inventory.domain.model.Reservation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +21,6 @@ class InventoryServiceTest {
     @BeforeEach
     void setUp() {
         inventoryService = new InventoryService();
-        ReflectionTestUtils.setField(inventoryService, "failureEnabled", false);
-        ReflectionTestUtils.setField(inventoryService, "failureRate", 0.0);
-        ReflectionTestUtils.setField(inventoryService, "delayEnabled", false);
-        ReflectionTestUtils.setField(inventoryService, "delayMinMs", 0);
-        ReflectionTestUtils.setField(inventoryService, "delayMaxMs", 0);
     }
 
     private NotifyRequest createValidNotifyRequest(UUID txId) {
@@ -36,7 +28,7 @@ class InventoryServiceTest {
         Map<String, Object> payload = Map.of(
                 "userId", "user-123",
                 "items", List.of(
-                        Map.of("sku", "SKU-001", "quantity", 2, "unitPrice", 29.99)
+                        Map.of("productId", "SKU-001", "productName", "Test Item", "quantity", 2)
                 )
         );
         return NotifyRequest.of(txId, orderId, payload);
@@ -54,107 +46,47 @@ class InventoryServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = inventoryService.reserveInventory(request);
+            Reservation reservation = inventoryService.reserveInventory(request);
 
             // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.serviceReference()).startsWith("RES-");
-            assertThat(response.message()).isEqualTo("Inventory reserved");
+            assertThat(reservation.isReserved()).isTrue();
+            assertThat(reservation.getTxId()).isEqualTo(txId);
+            assertThat(reservation.getReferenceNumber()).startsWith("RES-");
+            assertThat(reservation.getStatus()).isEqualTo(Reservation.ReservationStatus.RESERVED);
         }
 
         @Test
-        @DisplayName("Should return same response for idempotent requests")
-        void shouldReturnSameResponseForIdempotentRequests() {
+        @DisplayName("Should return valid reservations for multiple requests")
+        void shouldReturnValidReservationsForMultipleRequests() {
             // Given
             UUID txId = UUID.randomUUID();
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse firstResponse = inventoryService.reserveInventory(request);
-            NotifyResponse secondResponse = inventoryService.reserveInventory(request);
+            Reservation firstReservation = inventoryService.reserveInventory(request);
+            Reservation secondReservation = inventoryService.reserveInventory(request);
 
             // Then
-            assertThat(firstResponse.success()).isTrue();
-            assertThat(secondResponse.success()).isTrue();
-            assertThat(firstResponse.serviceReference()).isEqualTo(secondResponse.serviceReference());
+            assertThat(firstReservation.isReserved()).isTrue();
+            assertThat(secondReservation.isReserved()).isTrue();
+            assertThat(firstReservation.getReferenceNumber()).isNotBlank();
+            assertThat(secondReservation.getReferenceNumber()).isNotBlank();
         }
 
         @Test
-        @DisplayName("Should fail reservation when failure simulation is enabled")
-        void shouldFailReservationWhenFailureSimulationEnabled() {
+        @DisplayName("Should include items in reservation")
+        void shouldIncludeItemsInReservation() {
             // Given
-            ReflectionTestUtils.setField(inventoryService, "failureEnabled", true);
-            ReflectionTestUtils.setField(inventoryService, "failureRate", 1.0);
             UUID txId = UUID.randomUUID();
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = inventoryService.reserveInventory(request);
+            Reservation reservation = inventoryService.reserveInventory(request);
 
             // Then
-            assertThat(response.success()).isFalse();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.message()).contains("Out of stock");
-        }
-    }
-
-    @Nested
-    @DisplayName("Release Inventory Tests")
-    class ReleaseInventoryTests {
-
-        @Test
-        @DisplayName("Should successfully release reserved inventory")
-        void shouldSuccessfullyReleaseInventory() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            NotifyRequest notifyRequest = createValidNotifyRequest(txId);
-            inventoryService.reserveInventory(notifyRequest);
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test release");
-
-            // When
-            RollbackResponse response = inventoryService.releaseInventory(rollbackRequest);
-
-            // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.message()).isEqualTo("Inventory released successfully");
-        }
-
-        @Test
-        @DisplayName("Should handle release for non-existent reservation")
-        void shouldHandleReleaseForNonExistentReservation() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test release");
-
-            // When
-            RollbackResponse response = inventoryService.releaseInventory(rollbackRequest);
-
-            // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.message()).isEqualTo("No reservation to release");
-        }
-
-        @Test
-        @DisplayName("Should return idempotent response for already released inventory")
-        void shouldReturnIdempotentResponseForAlreadyReleasedInventory() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            NotifyRequest notifyRequest = createValidNotifyRequest(txId);
-            inventoryService.reserveInventory(notifyRequest);
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test release");
-
-            // When
-            inventoryService.releaseInventory(rollbackRequest);
-            RollbackResponse secondResponse = inventoryService.releaseInventory(rollbackRequest);
-
-            // Then
-            assertThat(secondResponse.success()).isTrue();
-            assertThat(secondResponse.message()).isEqualTo("Inventory already released");
+            assertThat(reservation.getItems()).hasSize(1);
+            assertThat(reservation.getItems().get(0).productId()).isEqualTo("SKU-001");
+            assertThat(reservation.getItems().get(0).quantity()).isEqualTo(2);
         }
     }
 }

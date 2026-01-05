@@ -2,12 +2,12 @@ package com.ecommerce.inventory.infrastructure.kafka;
 
 import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.common.kafka.SagaMessage;
 import com.ecommerce.inventory.application.port.in.ReserveInventoryUseCase;
 import com.ecommerce.inventory.application.port.in.RollbackReservationUseCase;
+import com.ecommerce.inventory.domain.model.Reservation;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,15 +101,15 @@ public class InventoryCommandConsumer {
                 payload
         );
 
-        NotifyResponse response = reserveInventoryUseCase.reserveInventory(request);
+        Reservation reservation = reserveInventoryUseCase.reserveInventory(request);
 
-        if (response.success()) {
+        if (reservation.isReserved()) {
             return SagaMessage.successResponse(
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.INVENTORY,
-                    response.serviceReference(),
-                    response.message(),
+                    reservation.getReferenceNumber(),
+                    "Inventory reserved",
                     false
             );
         } else {
@@ -117,7 +117,7 @@ public class InventoryCommandConsumer {
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.INVENTORY,
-                    response.message(),
+                    "Reservation failed: " + reservation.getStatus(),
                     "RESERVATION_FAILED",
                     false
             );

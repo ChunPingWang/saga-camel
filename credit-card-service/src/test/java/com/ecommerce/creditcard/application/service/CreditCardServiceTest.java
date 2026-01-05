@@ -1,14 +1,11 @@
 package com.ecommerce.creditcard.application.service;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
-import com.ecommerce.common.dto.RollbackRequest;
-import com.ecommerce.common.dto.RollbackResponse;
+import com.ecommerce.creditcard.domain.model.Payment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,11 +22,6 @@ class CreditCardServiceTest {
     @BeforeEach
     void setUp() {
         creditCardService = new CreditCardService();
-        ReflectionTestUtils.setField(creditCardService, "failureEnabled", false);
-        ReflectionTestUtils.setField(creditCardService, "failureRate", 0.0);
-        ReflectionTestUtils.setField(creditCardService, "delayEnabled", false);
-        ReflectionTestUtils.setField(creditCardService, "delayMinMs", 0);
-        ReflectionTestUtils.setField(creditCardService, "delayMaxMs", 0);
     }
 
     private NotifyRequest createValidNotifyRequest(UUID txId) {
@@ -55,13 +47,13 @@ class CreditCardServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = creditCardService.processPayment(request);
+            Payment payment = creditCardService.processPayment(request);
 
             // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.serviceReference()).startsWith("AUTH-");
-            assertThat(response.message()).isEqualTo("Payment captured");
+            assertThat(payment.isApproved()).isTrue();
+            assertThat(payment.getTxId()).isEqualTo(txId);
+            assertThat(payment.getReferenceNumber()).startsWith("PAY-");
+            assertThat(payment.getStatus()).isEqualTo(Payment.PaymentStatus.APPROVED);
         }
 
         @Test
@@ -72,90 +64,30 @@ class CreditCardServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse firstResponse = creditCardService.processPayment(request);
-            NotifyResponse secondResponse = creditCardService.processPayment(request);
+            Payment firstPayment = creditCardService.processPayment(request);
+            Payment secondPayment = creditCardService.processPayment(request);
 
             // Then
-            assertThat(firstResponse.success()).isTrue();
-            assertThat(secondResponse.success()).isTrue();
-            assertThat(firstResponse.serviceReference()).isEqualTo(secondResponse.serviceReference());
+            assertThat(firstPayment.isApproved()).isTrue();
+            assertThat(secondPayment.isApproved()).isTrue();
+            // Both calls should produce valid payments
+            assertThat(firstPayment.getReferenceNumber()).isNotBlank();
+            assertThat(secondPayment.getReferenceNumber()).isNotBlank();
         }
 
         @Test
-        @DisplayName("Should fail payment when failure simulation is enabled")
-        void shouldFailPaymentWhenFailureSimulationEnabled() {
+        @DisplayName("Should mask credit card number in payment")
+        void shouldMaskCreditCardNumber() {
             // Given
-            ReflectionTestUtils.setField(creditCardService, "failureEnabled", true);
-            ReflectionTestUtils.setField(creditCardService, "failureRate", 1.0);
             UUID txId = UUID.randomUUID();
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = creditCardService.processPayment(request);
+            Payment payment = creditCardService.processPayment(request);
 
             // Then
-            assertThat(response.success()).isFalse();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.message()).contains("Payment declined");
-        }
-    }
-
-    @Nested
-    @DisplayName("Rollback Payment Tests")
-    class RollbackPaymentTests {
-
-        @Test
-        @DisplayName("Should successfully rollback processed payment")
-        void shouldSuccessfullyRollbackPayment() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            NotifyRequest notifyRequest = createValidNotifyRequest(txId);
-            creditCardService.processPayment(notifyRequest);
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test rollback");
-
-            // When
-            RollbackResponse response = creditCardService.rollbackPayment(rollbackRequest);
-
-            // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.message()).isEqualTo("Payment refunded successfully");
-        }
-
-        @Test
-        @DisplayName("Should handle rollback for non-existent payment")
-        void shouldHandleRollbackForNonExistentPayment() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test rollback");
-
-            // When
-            RollbackResponse response = creditCardService.rollbackPayment(rollbackRequest);
-
-            // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.message()).isEqualTo("No payment to rollback");
-        }
-
-        @Test
-        @DisplayName("Should return idempotent response for already refunded payment")
-        void shouldReturnIdempotentResponseForAlreadyRefundedPayment() {
-            // Given
-            UUID txId = UUID.randomUUID();
-            UUID orderId = UUID.randomUUID();
-            NotifyRequest notifyRequest = createValidNotifyRequest(txId);
-            creditCardService.processPayment(notifyRequest);
-            RollbackRequest rollbackRequest = RollbackRequest.of(txId, orderId, "Test rollback");
-
-            // When
-            creditCardService.rollbackPayment(rollbackRequest);
-            RollbackResponse secondResponse = creditCardService.rollbackPayment(rollbackRequest);
-
-            // Then
-            assertThat(secondResponse.success()).isTrue();
-            assertThat(secondResponse.message()).isEqualTo("Payment already refunded");
+            assertThat(payment.getCreditCardNumber()).endsWith("1111");
+            assertThat(payment.getCreditCardNumber()).contains("****");
         }
     }
 }

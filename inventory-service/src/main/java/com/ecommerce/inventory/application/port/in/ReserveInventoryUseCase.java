@@ -1,16 +1,18 @@
 package com.ecommerce.inventory.application.port.in;
 
+import com.ecommerce.inventory.domain.model.Reservation;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 
 /**
- * Input port for reserving inventory.
+ * Use case port for reserving inventory.
  */
 public interface ReserveInventoryUseCase {
 
     /**
-     * Reserve inventory for an order.
-     * Idempotent - same txId will return same result.
+     * Reserve inventory for the given notification request.
+     *
+     * @param request the notification request containing order items
+     * @return the reservation result
      */
-    NotifyResponse reserveInventory(NotifyRequest request);
+    Reservation reserveInventory(NotifyRequest request);
 }

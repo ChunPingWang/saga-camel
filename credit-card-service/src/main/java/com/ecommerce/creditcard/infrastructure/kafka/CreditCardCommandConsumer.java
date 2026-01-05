@@ -2,12 +2,12 @@ package com.ecommerce.creditcard.infrastructure.kafka;
 
 import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.common.kafka.SagaMessage;
 import com.ecommerce.creditcard.application.port.in.ProcessPaymentUseCase;
 import com.ecommerce.creditcard.application.port.in.RollbackPaymentUseCase;
+import com.ecommerce.creditcard.domain.model.Payment;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -111,16 +111,16 @@ public class CreditCardCommandConsumer {
         );
 
         // Process payment
-        NotifyResponse response = processPaymentUseCase.processPayment(request);
+        Payment payment = processPaymentUseCase.processPayment(request);
 
         // Build response message
-        if (response.success()) {
+        if (payment.isApproved()) {
             return SagaMessage.successResponse(
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.CREDIT_CARD,
-                    response.serviceReference(),
-                    response.message(),
+                    payment.getReferenceNumber(),
+                    "Payment approved",
                     false
             );
         } else {
@@ -128,7 +128,7 @@ public class CreditCardCommandConsumer {
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.CREDIT_CARD,
-                    response.message(),
+                    "Payment declined: " + payment.getStatus(),
                     "PAYMENT_FAILED",
                     false
             );
