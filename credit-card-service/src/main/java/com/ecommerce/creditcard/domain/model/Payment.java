@@ -29,9 +29,14 @@ public class Payment {
     }
 
     public static Payment process(UUID txId, UUID orderId, BigDecimal amount, String creditCardNumber) {
-        String referenceNumber = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String referenceNumber = "AUTH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         return new Payment(txId, orderId, amount, creditCardNumber,
                 PaymentStatus.APPROVED, referenceNumber, LocalDateTime.now());
+    }
+
+    public static Payment declined(UUID txId, UUID orderId, BigDecimal amount, String creditCardNumber) {
+        return new Payment(txId, orderId, amount, creditCardNumber,
+                PaymentStatus.DECLINED, null, LocalDateTime.now());
     }
 
     private String maskCardNumber(String cardNumber) {

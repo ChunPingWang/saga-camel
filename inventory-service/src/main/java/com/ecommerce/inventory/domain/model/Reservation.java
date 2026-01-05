@@ -36,6 +36,14 @@ public class Reservation {
                 ReservationStatus.RESERVED, referenceNumber, LocalDateTime.now());
     }
 
+    public static Reservation outOfStock(UUID txId, UUID orderId, List<Map<String, Object>> itemMaps) {
+        List<ReservedItem> reservedItems = itemMaps.stream()
+                .map(ReservedItem::fromMap)
+                .toList();
+        return new Reservation(txId, orderId, reservedItems,
+                ReservationStatus.OUT_OF_STOCK, null, LocalDateTime.now());
+    }
+
     public UUID getTxId() { return txId; }
     public UUID getOrderId() { return orderId; }
     public List<ReservedItem> getItems() { return items; }

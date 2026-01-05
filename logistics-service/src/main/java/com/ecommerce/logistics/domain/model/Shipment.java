@@ -32,6 +32,11 @@ public class Shipment {
                 ShipmentStatus.SCHEDULED, estimatedDelivery, LocalDateTime.now());
     }
 
+    public static Shipment cancelled(UUID txId, UUID orderId) {
+        return new Shipment(txId, orderId, null,
+                ShipmentStatus.CANCELLED, null, LocalDateTime.now());
+    }
+
     public UUID getTxId() { return txId; }
     public UUID getOrderId() { return orderId; }
     public String getTrackingNumber() { return trackingNumber; }

@@ -52,7 +52,7 @@ class CreditCardServiceTest {
             // Then
             assertThat(payment.isApproved()).isTrue();
             assertThat(payment.getTxId()).isEqualTo(txId);
-            assertThat(payment.getReferenceNumber()).startsWith("PAY-");
+            assertThat(payment.getReferenceNumber()).startsWith("AUTH-");
             assertThat(payment.getStatus()).isEqualTo(Payment.PaymentStatus.APPROVED);
         }
 

@@ -1,11 +1,11 @@
 package com.ecommerce.logistics.adapter.in.web;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.logistics.application.port.in.RollbackShipmentUseCase;
 import com.ecommerce.logistics.application.port.in.ScheduleShipmentUseCase;
+import com.ecommerce.logistics.domain.model.Shipment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +15,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,9 +53,11 @@ class LogisticsControllerTest {
                 "items", List.of(Map.of("sku", "SKU-001", "quantity", 2))
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.success(txId, "Shipment scheduled", "TRK-123456789012");
 
-        when(scheduleShipmentUseCase.scheduleShipment(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        Shipment mockShipment = new Shipment(txId, orderId, "TRK-12345678",
+                Shipment.ShipmentStatus.SCHEDULED, LocalDateTime.now().plusDays(3), LocalDateTime.now());
+
+        when(scheduleShipmentUseCase.scheduleShipment(any(NotifyRequest.class))).thenReturn(mockShipment);
 
         // When & Then
         mockMvc.perform(post("/api/v1/logistics/notify")
@@ -63,7 +66,7 @@ class LogisticsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.txId").value(txId.toString()))
-                .andExpect(jsonPath("$.serviceReference").value("TRK-123456789012"));
+                .andExpect(jsonPath("$.serviceReference").value("TRK-12345678"));
     }
 
     @Test
@@ -76,17 +79,18 @@ class LogisticsControllerTest {
                 "shippingAddress", "123 Main St"
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.failure(txId, "Carrier unavailable");
 
-        when(scheduleShipmentUseCase.scheduleShipment(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        Shipment mockShipment = new Shipment(txId, orderId, null,
+                Shipment.ShipmentStatus.CANCELLED, null, LocalDateTime.now());
+
+        when(scheduleShipmentUseCase.scheduleShipment(any(NotifyRequest.class))).thenReturn(mockShipment);
 
         // When & Then
         mockMvc.perform(post("/api/v1/logistics/notify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Carrier unavailable"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
