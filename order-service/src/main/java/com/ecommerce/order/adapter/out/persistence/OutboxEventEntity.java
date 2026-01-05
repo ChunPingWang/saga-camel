@@ -1,6 +1,8 @@
 package com.ecommerce.order.adapter.out.persistence;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -40,6 +42,7 @@ public class OutboxEventEntity {
      * JSON payload containing event data.
      */
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String payload;
 
     @Column(name = "tx_id", nullable = false, length = 36)
