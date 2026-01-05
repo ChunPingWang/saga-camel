@@ -21,6 +21,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
@@ -35,6 +36,7 @@ import java.util.function.Supplier;
  * Decorator order: Bulkhead -> Retry -> CircuitBreaker -> HTTP Call
  */
 @Component
+@Primary
 @Profile("!kafka")
 public class ServiceClientAdapter implements ServiceClientPort {
 

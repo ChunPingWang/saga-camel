@@ -141,16 +141,17 @@ class TransactionEventTest {
         @Test
         @DisplayName("should have working equals and hashCode")
         void shouldHaveWorkingEqualsAndHashCode() {
-            // Given - same event data
-            String txId = "tx-123";
-            String orderId = "order-456";
+            // Given - different event data
+            TransactionEvent event1 = TransactionEvent.sagaCompleted("tx-123", "order-456");
+            TransactionEvent event2 = TransactionEvent.sagaCompleted("tx-different", "order-789");
 
-            TransactionEvent event1 = TransactionEvent.sagaCompleted(txId, orderId);
-            TransactionEvent event2 = TransactionEvent.sagaCompleted(txId, orderId);
-
-            // Then - not equal due to different timestamps
-            // Records with Instant.now() will have different timestamps
+            // Then - different txIds should not be equal
             assertNotEquals(event1, event2);
+            assertNotEquals(event1.hashCode(), event2.hashCode());
+
+            // And - same event should equal itself
+            assertEquals(event1, event1);
+            assertEquals(event1.hashCode(), event1.hashCode());
         }
 
         @Test
