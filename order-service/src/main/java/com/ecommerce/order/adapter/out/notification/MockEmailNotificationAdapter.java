@@ -18,7 +18,7 @@ import java.util.UUID;
  * Logs notifications to console and stores them for test verification.
  */
 @Component
-@Profile({"default", "dev", "test"})
+@Profile({"default", "dev", "test", "kafka"})
 public class MockEmailNotificationAdapter implements NotificationPort {
 
     private static final Logger log = LoggerFactory.getLogger(MockEmailNotificationAdapter.class);

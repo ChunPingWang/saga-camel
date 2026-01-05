@@ -9,6 +9,7 @@ import com.ecommerce.order.application.port.out.ServiceClientPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
  * HTTP client for Credit Card Service communication.
  */
 @Component
+@Profile("!kafka")
 public class CreditCardServiceClient implements ServiceClientPort {
 
     private static final Logger log = LoggerFactory.getLogger(CreditCardServiceClient.class);
