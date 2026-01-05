@@ -26,7 +26,7 @@ class OrderLoadTest extends Simulation {
     "orderId" -> java.util.UUID.randomUUID().toString,
     "userId" -> s"user-${scala.util.Random.nextInt(1000)}",
     "amount" -> (10 + scala.util.Random.nextDouble() * 990).formatted("%.2f"),
-    "productId" -> s"SKU-${1000 + scala.util.Random.nextInt(100)}"
+    "sku" -> s"SKU-${1000 + scala.util.Random.nextInt(100)}"
   ))
 
   // Order confirmation scenario
@@ -41,7 +41,7 @@ class OrderLoadTest extends Simulation {
             |  "userId": "${userId}",
             |  "items": [
             |    {
-            |      "productId": "${productId}",
+            |      "sku": "${sku}",
             |      "productName": "Test Product",
             |      "quantity": 1,
             |      "unitPrice": ${amount}
@@ -73,7 +73,7 @@ class OrderLoadTest extends Simulation {
             |  "userId": "${userId}",
             |  "items": [
             |    {
-            |      "productId": "${productId}",
+            |      "sku": "${sku}",
             |      "productName": "Test Product",
             |      "quantity": 1,
             |      "unitPrice": ${amount}
@@ -138,16 +138,17 @@ class OrderSmokeTest extends Simulation {
         .check(status.is(200))
     )
     .pause(1.second)
+    .exec(session => session.set("smokeOrderId", java.util.UUID.randomUUID().toString))
     .exec(
       http("Confirm Single Order")
         .post("/api/v1/orders/confirm")
         .body(StringBody(
           """{
-            |  "orderId": "smoke-test-order",
+            |  "orderId": "${smokeOrderId}",
             |  "userId": "smoke-test-user",
             |  "items": [
             |    {
-            |      "productId": "SKU-SMOKE",
+            |      "sku": "SKU-SMOKE",
             |      "productName": "Smoke Test Product",
             |      "quantity": 1,
             |      "unitPrice": 99.99
@@ -180,7 +181,7 @@ class OrderStressTest extends Simulation {
     "orderId" -> java.util.UUID.randomUUID().toString,
     "userId" -> s"user-${scala.util.Random.nextInt(1000)}",
     "amount" -> (10 + scala.util.Random.nextDouble() * 990).formatted("%.2f"),
-    "productId" -> s"SKU-${1000 + scala.util.Random.nextInt(100)}"
+    "sku" -> s"SKU-${1000 + scala.util.Random.nextInt(100)}"
   ))
 
   val stressScenario = scenario("Stress Test")
@@ -194,7 +195,7 @@ class OrderStressTest extends Simulation {
             |  "userId": "${userId}",
             |  "items": [
             |    {
-            |      "productId": "${productId}",
+            |      "sku": "${sku}",
             |      "productName": "Stress Test Product",
             |      "quantity": 1,
             |      "unitPrice": ${amount}
