@@ -3,90 +3,65 @@ package com.ecommerce.inventory.domain.model;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Inventory reservation domain model.
+ * Reservation domain model representing an inventory reservation.
  */
 public class Reservation {
-
-    public enum ReservationStatus {
-        PENDING, RESERVED, RELEASED, FAILED
-    }
-
-    public record ReservedItem(String sku, int quantity) {}
 
     private final UUID txId;
     private final UUID orderId;
     private final List<ReservedItem> items;
-    private ReservationStatus status;
-    private String reservationReference;
-    private final LocalDateTime createdAt;
-    private LocalDateTime processedAt;
+    private final ReservationStatus status;
+    private final String referenceNumber;
+    private final LocalDateTime reservedAt;
 
-    private Reservation(UUID txId, UUID orderId, List<ReservedItem> items) {
-        Objects.requireNonNull(txId, "txId is required");
-        Objects.requireNonNull(orderId, "orderId is required");
-        Objects.requireNonNull(items, "items is required");
-
-        if (items.isEmpty()) {
-            throw new IllegalArgumentException("Items cannot be empty");
-        }
-
+    public Reservation(UUID txId, UUID orderId, List<ReservedItem> items,
+                       ReservationStatus status, String referenceNumber, LocalDateTime reservedAt) {
         this.txId = txId;
         this.orderId = orderId;
-        this.items = List.copyOf(items);
-        this.status = ReservationStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
+        this.items = items;
+        this.status = status;
+        this.referenceNumber = referenceNumber;
+        this.reservedAt = reservedAt;
     }
 
-    public static Reservation create(UUID txId, UUID orderId, List<Map<String, Object>> itemsData) {
-        List<ReservedItem> items = itemsData.stream()
-                .map(data -> new ReservedItem(
-                        (String) data.get("sku"),
-                        ((Number) data.get("quantity")).intValue()
-                ))
+    public static Reservation reserve(UUID txId, UUID orderId, List<Map<String, Object>> itemMaps) {
+        List<ReservedItem> reservedItems = itemMaps.stream()
+                .map(ReservedItem::fromMap)
                 .toList();
-        return new Reservation(txId, orderId, items);
+        String referenceNumber = "RES-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return new Reservation(txId, orderId, reservedItems,
+                ReservationStatus.RESERVED, referenceNumber, LocalDateTime.now());
     }
 
-    public void reserve(String reference) {
-        if (this.status != ReservationStatus.PENDING) {
-            throw new IllegalStateException("Cannot reserve in status: " + status);
-        }
-        this.reservationReference = reference;
-        this.status = ReservationStatus.RESERVED;
-        this.processedAt = LocalDateTime.now();
+    public static Reservation outOfStock(UUID txId, UUID orderId, List<Map<String, Object>> itemMaps) {
+        List<ReservedItem> reservedItems = itemMaps.stream()
+                .map(ReservedItem::fromMap)
+                .toList();
+        return new Reservation(txId, orderId, reservedItems,
+                ReservationStatus.OUT_OF_STOCK, null, LocalDateTime.now());
     }
 
-    public void release() {
-        if (this.status != ReservationStatus.RESERVED) {
-            throw new IllegalStateException("Cannot release reservation in status: " + status);
-        }
-        this.status = ReservationStatus.RELEASED;
-        this.processedAt = LocalDateTime.now();
-    }
-
-    public void fail() {
-        this.status = ReservationStatus.FAILED;
-        this.processedAt = LocalDateTime.now();
-    }
-
-    public boolean isReserved() {
-        return status == ReservationStatus.RESERVED;
-    }
-
-    public boolean canRelease() {
-        return status == ReservationStatus.RESERVED;
-    }
-
-    // Getters
     public UUID getTxId() { return txId; }
     public UUID getOrderId() { return orderId; }
     public List<ReservedItem> getItems() { return items; }
     public ReservationStatus getStatus() { return status; }
-    public String getReservationReference() { return reservationReference; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getProcessedAt() { return processedAt; }
+    public String getReferenceNumber() { return referenceNumber; }
+    public LocalDateTime getReservedAt() { return reservedAt; }
+    public boolean isReserved() { return status == ReservationStatus.RESERVED; }
+
+    public enum ReservationStatus {
+        PENDING, RESERVED, OUT_OF_STOCK, RELEASED
+    }
+
+    public record ReservedItem(String productId, String productName, int quantity) {
+        public static ReservedItem fromMap(Map<String, Object> map) {
+            String productId = map.getOrDefault("productId", "").toString();
+            String productName = map.getOrDefault("productName", "").toString();
+            int quantity = map.get("quantity") instanceof Number n ? n.intValue() : 1;
+            return new ReservedItem(productId, productName, quantity);
+        }
+    }
 }

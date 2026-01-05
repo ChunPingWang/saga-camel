@@ -1,16 +1,18 @@
 package com.ecommerce.logistics.application.port.in;
 
+import com.ecommerce.logistics.domain.model.Shipment;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 
 /**
- * Input port for scheduling shipments.
+ * Use case port for scheduling shipments.
  */
 public interface ScheduleShipmentUseCase {
 
     /**
-     * Schedule a shipment for an order.
-     * Idempotent - same txId will return same result.
+     * Schedule a shipment for the given notification request.
+     *
+     * @param request the notification request containing order details
+     * @return the scheduled shipment
      */
-    NotifyResponse scheduleShipment(NotifyRequest request);
+    Shipment scheduleShipment(NotifyRequest request);
 }

@@ -1,11 +1,11 @@
 package com.ecommerce.creditcard.adapter.in.web;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.creditcard.application.port.in.ProcessPaymentUseCase;
 import com.ecommerce.creditcard.application.port.in.RollbackPaymentUseCase;
+import com.ecommerce.creditcard.domain.model.Payment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,9 +53,10 @@ class CreditCardControllerTest {
                 "creditCardNumber", "4111111111111111"
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.success(txId, "Payment captured", "AUTH-12345678");
+        Payment mockPayment = new Payment(txId, orderId, new BigDecimal("99.99"), "4111111111111111",
+                Payment.PaymentStatus.APPROVED, "PAY-12345678", LocalDateTime.now());
 
-        when(processPaymentUseCase.processPayment(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        when(processPaymentUseCase.processPayment(any(NotifyRequest.class))).thenReturn(mockPayment);
 
         // When & Then
         mockMvc.perform(post("/api/v1/credit-card/notify")
@@ -64,11 +65,11 @@ class CreditCardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.txId").value(txId.toString()))
-                .andExpect(jsonPath("$.serviceReference").value("AUTH-12345678"));
+                .andExpect(jsonPath("$.serviceReference").value("PAY-12345678"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/credit-card/notify - should return failure response")
+    @DisplayName("POST /api/v1/credit-card/notify - should return failure response for declined payment")
     void notify_shouldReturnFailureResponse() throws Exception {
         // Given
         UUID txId = UUID.randomUUID();
@@ -78,9 +79,10 @@ class CreditCardControllerTest {
                 "creditCardNumber", "4111111111111111"
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.failure(txId, "Payment declined");
+        Payment mockPayment = new Payment(txId, orderId, new BigDecimal("99.99"), "4111111111111111",
+                Payment.PaymentStatus.DECLINED, null, LocalDateTime.now());
 
-        when(processPaymentUseCase.processPayment(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        when(processPaymentUseCase.processPayment(any(NotifyRequest.class))).thenReturn(mockPayment);
 
         // When & Then
         mockMvc.perform(post("/api/v1/credit-card/notify")

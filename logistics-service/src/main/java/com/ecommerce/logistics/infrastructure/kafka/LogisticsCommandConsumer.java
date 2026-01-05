@@ -2,12 +2,12 @@ package com.ecommerce.logistics.infrastructure.kafka;
 
 import com.ecommerce.common.domain.ServiceName;
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.common.kafka.SagaMessage;
 import com.ecommerce.logistics.application.port.in.ScheduleShipmentUseCase;
 import com.ecommerce.logistics.application.port.in.RollbackShipmentUseCase;
+import com.ecommerce.logistics.domain.model.Shipment;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,15 +101,15 @@ public class LogisticsCommandConsumer {
                 payload
         );
 
-        NotifyResponse response = scheduleShipmentUseCase.scheduleShipment(request);
+        Shipment shipment = scheduleShipmentUseCase.scheduleShipment(request);
 
-        if (response.success()) {
+        if (shipment.isScheduled()) {
             return SagaMessage.successResponse(
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.LOGISTICS,
-                    response.serviceReference(),
-                    response.message(),
+                    shipment.getTrackingNumber(),
+                    "Shipment scheduled, tracking: " + shipment.getTrackingNumber(),
                     false
             );
         } else {
@@ -117,7 +117,7 @@ public class LogisticsCommandConsumer {
                     command.getTxId(),
                     command.getOrderId(),
                     ServiceName.LOGISTICS,
-                    response.message(),
+                    "Shipment scheduling failed: " + shipment.getStatus(),
                     "SHIPMENT_FAILED",
                     false
             );

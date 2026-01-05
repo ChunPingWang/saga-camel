@@ -129,67 +129,67 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation (TDD)**
 
-- [ ] T049 [P] [US1] Write contract test for POST /api/v1/orders/confirm in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/OrderControllerContractTest.java`
-- [ ] T050 [P] [US1] Write contract test for GET /api/v1/transactions/{txId} in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/TransactionControllerContractTest.java`
-- [ ] T051 [P] [US1] Write unit test for `OrderSagaService` in `order-service/src/test/java/com/ecommerce/order/application/service/OrderSagaServiceTest.java`
-- [ ] T052 [P] [US1] Write Camel route test for `OrderSagaRoute` in `order-service/src/test/java/com/ecommerce/order/infrastructure/camel/OrderSagaRouteTest.java`
-- [ ] T053 [P] [US1] Write integration test for WebSocket handler in `order-service/src/test/java/com/ecommerce/order/adapter/in/websocket/OrderWebSocketHandlerTest.java`
+- [x] T049 [P] [US1] Write contract test for POST /api/v1/orders/confirm in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/OrderControllerContractTest.java`
+- [x] T050 [P] [US1] Write contract test for GET /api/v1/transactions/{txId} in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/TransactionControllerContractTest.java`
+- [x] T051 [P] [US1] Write unit test for `OrderSagaService` in `order-service/src/test/java/com/ecommerce/order/application/service/OrderSagaServiceTest.java`
+- [x] T052 [P] [US1] Write Camel route test for `OrderSagaRoute` in `order-service/src/test/java/com/ecommerce/order/infrastructure/camel/OrderSagaRouteTest.java`
+- [x] T053 [P] [US1] Write integration test for WebSocket handler in `order-service/src/test/java/com/ecommerce/order/adapter/in/websocket/OrderWebSocketHandlerTest.java`
 
 ### Implementation for User Story 1
 
 #### Downstream Services (Idempotent APIs)
 
-- [ ] T054 [P] [US1] Create `Payment` domain model in `credit-card-service/src/main/java/com/ecommerce/creditcard/domain/model/Payment.java`
-- [ ] T055 [P] [US1] Create `ProcessPaymentUseCase` port in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/port/in/ProcessPaymentUseCase.java`
-- [ ] T056 [P] [US1] Create `CreditCardService` in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/service/CreditCardService.java`
-- [ ] T057 [P] [US1] Create `CreditCardController` with POST /notify endpoint in `credit-card-service/src/main/java/com/ecommerce/creditcard/adapter/in/web/CreditCardController.java`
+- [x] T054 [P] [US1] Create `Payment` domain model in `credit-card-service/src/main/java/com/ecommerce/creditcard/domain/model/Payment.java`
+- [x] T055 [P] [US1] Create `ProcessPaymentUseCase` port in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/port/in/ProcessPaymentUseCase.java`
+- [x] T056 [P] [US1] Create `CreditCardService` in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/service/CreditCardService.java`
+- [x] T057 [P] [US1] Create `CreditCardController` with POST /notify endpoint in `credit-card-service/src/main/java/com/ecommerce/creditcard/adapter/in/web/CreditCardController.java`
 
-- [ ] T058 [P] [US1] Create `Reservation` domain model in `inventory-service/src/main/java/com/ecommerce/inventory/domain/model/Reservation.java`
-- [ ] T059 [P] [US1] Create `ReserveInventoryUseCase` port in `inventory-service/src/main/java/com/ecommerce/inventory/application/port/in/ReserveInventoryUseCase.java`
-- [ ] T060 [P] [US1] Create `InventoryService` in `inventory-service/src/main/java/com/ecommerce/inventory/application/service/InventoryService.java`
-- [ ] T061 [P] [US1] Create `InventoryController` with POST /notify endpoint in `inventory-service/src/main/java/com/ecommerce/inventory/adapter/in/web/InventoryController.java`
+- [x] T058 [P] [US1] Create `Reservation` domain model in `inventory-service/src/main/java/com/ecommerce/inventory/domain/model/Reservation.java`
+- [x] T059 [P] [US1] Create `ReserveInventoryUseCase` port in `inventory-service/src/main/java/com/ecommerce/inventory/application/port/in/ReserveInventoryUseCase.java`
+- [x] T060 [P] [US1] Create `InventoryService` in `inventory-service/src/main/java/com/ecommerce/inventory/application/service/InventoryService.java`
+- [x] T061 [P] [US1] Create `InventoryController` with POST /notify endpoint in `inventory-service/src/main/java/com/ecommerce/inventory/adapter/in/web/InventoryController.java`
 
-- [ ] T062 [P] [US1] Create `Shipment` domain model in `logistics-service/src/main/java/com/ecommerce/logistics/domain/model/Shipment.java`
-- [ ] T063 [P] [US1] Create `ScheduleShipmentUseCase` port in `logistics-service/src/main/java/com/ecommerce/logistics/application/port/in/ScheduleShipmentUseCase.java`
-- [ ] T064 [P] [US1] Create `LogisticsService` in `logistics-service/src/main/java/com/ecommerce/logistics/application/service/LogisticsService.java`
-- [ ] T065 [P] [US1] Create `LogisticsController` with POST /notify endpoint in `logistics-service/src/main/java/com/ecommerce/logistics/adapter/in/web/LogisticsController.java`
+- [x] T062 [P] [US1] Create `Shipment` domain model in `logistics-service/src/main/java/com/ecommerce/logistics/domain/model/Shipment.java`
+- [x] T063 [P] [US1] Create `ScheduleShipmentUseCase` port in `logistics-service/src/main/java/com/ecommerce/logistics/application/port/in/ScheduleShipmentUseCase.java`
+- [x] T064 [P] [US1] Create `LogisticsService` in `logistics-service/src/main/java/com/ecommerce/logistics/application/service/LogisticsService.java`
+- [x] T065 [P] [US1] Create `LogisticsController` with POST /notify endpoint in `logistics-service/src/main/java/com/ecommerce/logistics/adapter/in/web/LogisticsController.java`
 
 #### Order Service Application Layer
 
-- [ ] T066 [US1] Create `OrderConfirmUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/OrderConfirmUseCase.java`
-- [ ] T067 [US1] Create `TransactionQueryUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/TransactionQueryUseCase.java`
-- [ ] T068 [US1] Implement `OrderSagaService` in `order-service/src/main/java/com/ecommerce/order/application/service/OrderSagaService.java`
+- [x] T066 [US1] Create `OrderConfirmUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/OrderConfirmUseCase.java`
+- [x] T067 [US1] Create `TransactionQueryUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/TransactionQueryUseCase.java`
+- [x] T068 [US1] Implement `OrderSagaService` in `order-service/src/main/java/com/ecommerce/order/application/service/OrderSagaService.java`
 
 #### Order Service Adapters - Outbound
 
-- [ ] T069 [US1] Write integration test for `OutboxPersistenceAdapter` in `order-service/src/test/java/com/ecommerce/order/adapter/out/persistence/OutboxPersistenceAdapterTest.java`
-- [ ] T070 [US1] Create `OutboxPersistenceAdapter` implementing `OutboxPort` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxPersistenceAdapter.java`
-- [ ] T071 [P] [US1] Create `CreditCardServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/CreditCardServiceClient.java`
-- [ ] T072 [P] [US1] Create `InventoryServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/InventoryServiceClient.java`
-- [ ] T073 [P] [US1] Create `LogisticsServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/LogisticsServiceClient.java`
+- [x] T069 [US1] Write integration test for `OutboxPersistenceAdapter` in `order-service/src/test/java/com/ecommerce/order/adapter/out/persistence/OutboxPersistenceAdapterTest.java`
+- [x] T070 [US1] Create `OutboxPersistenceAdapter` implementing `OutboxPort` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/OutboxPersistenceAdapter.java`
+- [x] T071 [P] [US1] Create `CreditCardServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/CreditCardServiceClient.java`
+- [x] T072 [P] [US1] Create `InventoryServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/InventoryServiceClient.java`
+- [x] T073 [P] [US1] Create `LogisticsServiceClient` in `order-service/src/main/java/com/ecommerce/order/adapter/out/service/LogisticsServiceClient.java`
 
 #### Order Service Adapters - Inbound
 
-- [ ] T074 [US1] Create `OrderController` with POST /api/v1/orders/confirm in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/OrderController.java`
-- [ ] T075 [US1] Create `TransactionController` with GET /api/v1/transactions/{txId} in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/TransactionController.java`
-- [ ] T076 [US1] Create request/response DTOs in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/dto/`
+- [x] T074 [US1] Create `OrderController` with POST /api/v1/orders/confirm in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/OrderController.java`
+- [x] T075 [US1] Create `TransactionController` with GET /api/v1/transactions/{txId} in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/TransactionController.java`
+- [x] T076 [US1] Create request/response DTOs in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/dto/`
 
 #### Order Service WebSocket
 
-- [ ] T077 [US1] Create `WebSocketConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/WebSocketConfig.java`
-- [ ] T078 [US1] Create `OrderWebSocketHandler` implementing `WebSocketPort` in `order-service/src/main/java/com/ecommerce/order/adapter/in/websocket/OrderWebSocketHandler.java`
-- [ ] T079 [US1] Create `WebSocketMessage` DTO in `order-service/src/main/java/com/ecommerce/order/adapter/in/websocket/WebSocketMessage.java`
+- [x] T077 [US1] Create `WebSocketConfig` in `order-service/src/main/java/com/ecommerce/order/infrastructure/config/WebSocketConfig.java`
+- [x] T078 [US1] Create `OrderWebSocketHandler` implementing `WebSocketPort` in `order-service/src/main/java/com/ecommerce/order/adapter/in/websocket/OrderWebSocketHandler.java`
+- [x] T079 [US1] Create `WebSocketMessage` DTO in `order-service/src/main/java/com/ecommerce/order/adapter/in/websocket/WebSocketMessage.java`
 
 #### Order Service Camel Routes
 
-- [ ] T080 [US1] Create `OrderSagaRoute` with dynamic service ordering in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/OrderSagaRoute.java`
-- [ ] T081 [P] [US1] Create `PreNotifyProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/PreNotifyProcessor.java`
-- [ ] T082 [P] [US1] Create `PostNotifyProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/PostNotifyProcessor.java`
+- [x] T080 [US1] Create `OrderSagaRoute` with dynamic service ordering in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/OrderSagaRoute.java`
+- [x] T081 [P] [US1] Create `PreNotifyProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/PreNotifyProcessor.java`
+- [x] T082 [P] [US1] Create `PostNotifyProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/PostNotifyProcessor.java`
 
 #### Outbox Poller
 
-- [ ] T083 [US1] Write unit test for `OutboxPoller` in `order-service/src/test/java/com/ecommerce/order/infrastructure/poller/OutboxPollerTest.java`
-- [ ] T084 [US1] Create `OutboxPoller` with @Scheduled polling in `order-service/src/main/java/com/ecommerce/order/infrastructure/poller/OutboxPoller.java`
+- [x] T083 [US1] Write unit test for `OutboxPoller` in `order-service/src/test/java/com/ecommerce/order/infrastructure/poller/OutboxPollerTest.java`
+- [x] T084 [US1] Create `OutboxPoller` with @Scheduled polling in `order-service/src/main/java/com/ecommerce/order/infrastructure/poller/OutboxPoller.java`
 
 **Checkpoint**: Happy path order confirmation works. POST order → get txId → connect WebSocket → receive PROCESSING/COMPLETED notifications for each service.
 
@@ -203,32 +203,32 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Tests for User Story 2
 
-- [ ] T085 [P] [US2] Write Camel route test for `RollbackRoute` in `order-service/src/test/java/com/ecommerce/order/infrastructure/camel/RollbackRouteTest.java`
-- [ ] T086 [P] [US2] Write unit test for `RollbackService` in `order-service/src/test/java/com/ecommerce/order/application/service/RollbackServiceTest.java`
-- [ ] T087 [P] [US2] Write integration test for rollback scenario in `order-service/src/test/java/com/ecommerce/order/integration/RollbackIntegrationTest.java`
+- [x] T085 [P] [US2] Write Camel route test for `RollbackRoute` in `order-service/src/test/java/com/ecommerce/order/infrastructure/camel/RollbackRouteTest.java`
+- [x] T086 [P] [US2] Write unit test for `RollbackService` in `order-service/src/test/java/com/ecommerce/order/application/service/RollbackServiceTest.java`
+- [x] T087 [P] [US2] Write integration test for rollback scenario in `order-service/src/test/java/com/ecommerce/order/integration/RollbackIntegrationTest.java`
 
 ### Implementation for User Story 2
 
 #### Downstream Rollback APIs (Idempotent)
 
-- [ ] T088 [P] [US2] Create `RollbackPaymentUseCase` port in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/port/in/RollbackPaymentUseCase.java`
-- [ ] T089 [P] [US2] Add rollback method to `CreditCardService` in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/service/CreditCardService.java`
-- [ ] T090 [P] [US2] Add POST /rollback endpoint to `CreditCardController`
+- [x] T088 [P] [US2] Create `RollbackPaymentUseCase` port in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/port/in/RollbackPaymentUseCase.java`
+- [x] T089 [P] [US2] Add rollback method to `CreditCardService` in `credit-card-service/src/main/java/com/ecommerce/creditcard/application/service/CreditCardService.java`
+- [x] T090 [P] [US2] Add POST /rollback endpoint to `CreditCardController`
 
-- [ ] T091 [P] [US2] Create `RollbackReservationUseCase` port in `inventory-service/src/main/java/com/ecommerce/inventory/application/port/in/RollbackReservationUseCase.java`
-- [ ] T092 [P] [US2] Add rollback method to `InventoryService`
-- [ ] T093 [P] [US2] Add POST /rollback endpoint to `InventoryController`
+- [x] T091 [P] [US2] Create `RollbackReservationUseCase` port in `inventory-service/src/main/java/com/ecommerce/inventory/application/port/in/RollbackReservationUseCase.java`
+- [x] T092 [P] [US2] Add rollback method to `InventoryService`
+- [x] T093 [P] [US2] Add POST /rollback endpoint to `InventoryController`
 
-- [ ] T094 [P] [US2] Create `CancelShipmentUseCase` port in `logistics-service/src/main/java/com/ecommerce/logistics/application/port/in/CancelShipmentUseCase.java`
-- [ ] T095 [P] [US2] Add rollback method to `LogisticsService`
-- [ ] T096 [P] [US2] Add POST /rollback endpoint to `LogisticsController`
+- [x] T094 [P] [US2] Create `RollbackShipmentUseCase` port in `logistics-service/src/main/java/com/ecommerce/logistics/application/port/in/RollbackShipmentUseCase.java`
+- [x] T095 [P] [US2] Add rollback method to `LogisticsService`
+- [x] T096 [P] [US2] Add POST /rollback endpoint to `LogisticsController`
 
 #### Order Service Rollback Logic
 
-- [ ] T097 [US2] Create `RollbackService` in `order-service/src/main/java/com/ecommerce/order/application/service/RollbackService.java`
-- [ ] T098 [US2] Create `RollbackRoute` with reverse-order compensation in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/RollbackRoute.java`
-- [ ] T099 [P] [US2] Create `RollbackProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/RollbackProcessor.java`
-- [ ] T100 [US2] Update `OrderSagaRoute` to trigger rollback on exception via onException handler
+- [x] T097 [US2] Create `RollbackService` in `order-service/src/main/java/com/ecommerce/order/application/service/RollbackService.java`
+- [x] T098 [US2] Create `RollbackRoute` embedded in `OrderSagaRoute` with reverse-order compensation
+- [x] T099 [P] [US2] Create `RollbackProcessor` in `order-service/src/main/java/com/ecommerce/order/infrastructure/camel/processor/RollbackProcessor.java`
+- [x] T100 [US2] Update `OrderSagaRoute` to trigger rollback on exception via onException handler
 
 **Checkpoint**: Service failure triggers automatic rollback. Inventory fails → payment rolled back → customer notified of failure.
 
@@ -242,16 +242,16 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Tests for User Story 3
 
-- [ ] T101 [P] [US3] Write unit test for `TransactionCheckerThread` in `order-service/src/test/java/com/ecommerce/order/infrastructure/checker/TransactionCheckerThreadTest.java`
-- [ ] T102 [P] [US3] Write unit test for `CheckerThreadManager` in `order-service/src/test/java/com/ecommerce/order/infrastructure/checker/CheckerThreadManagerTest.java`
-- [ ] T103 [P] [US3] Write integration test for timeout scenario in `order-service/src/test/java/com/ecommerce/order/integration/TimeoutIntegrationTest.java`
+- [x] T101 [P] [US3] Write unit test for `TransactionCheckerThread` in `order-service/src/test/java/com/ecommerce/order/infrastructure/checker/TransactionCheckerThreadTest.java`
+- [x] T102 [P] [US3] Write unit test for `CheckerThreadManager` in `order-service/src/test/java/com/ecommerce/order/infrastructure/checker/CheckerThreadManagerTest.java`
+- [x] T103 [P] [US3] Write integration test for timeout scenario in `order-service/src/test/java/com/ecommerce/order/integration/TimeoutIntegrationTest.java`
 
 ### Implementation for User Story 3
 
-- [ ] T104 [US3] Create `TransactionCheckerThread` in `order-service/src/main/java/com/ecommerce/order/infrastructure/checker/TransactionCheckerThread.java`
-- [ ] T105 [US3] Create `CheckerThreadManager` in `order-service/src/main/java/com/ecommerce/order/infrastructure/checker/CheckerThreadManager.java`
-- [ ] T106 [US3] Integrate checker thread startup in `OrderSagaService` after outbox event creation
-- [ ] T107 [US3] Add timeout configuration loading from `SagaConfigService`
+- [x] T104 [US3] Create `TransactionCheckerThread` in `order-service/src/main/java/com/ecommerce/order/infrastructure/checker/TransactionCheckerThread.java`
+- [x] T105 [US3] Create `CheckerThreadManager` in `order-service/src/main/java/com/ecommerce/order/infrastructure/checker/CheckerThreadManager.java`
+- [x] T106 [US3] Integrate checker thread startup in `OrderSagaService` after outbox event creation
+- [x] T107 [US3] Add timeout configuration loading from `SagaConfigService`
 
 **Checkpoint**: Timeout detection works. Slow service → checker detects timeout → triggers rollback → stops checker.
 
@@ -265,15 +265,15 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Tests for User Story 4
 
-- [ ] T108 [P] [US4] Write unit test for `NotificationPort` implementations in `order-service/src/test/java/com/ecommerce/order/adapter/out/notification/NotificationAdapterTest.java`
-- [ ] T109 [P] [US4] Write integration test for rollback failure escalation in `order-service/src/test/java/com/ecommerce/order/integration/EscalationIntegrationTest.java`
+- [x] T108 [P] [US4] Write unit test for `NotificationPort` implementations in `order-service/src/test/java/com/ecommerce/order/adapter/out/notification/NotificationAdapterTest.java`
+- [x] T109 [P] [US4] Write integration test for rollback failure escalation in `order-service/src/test/java/com/ecommerce/order/integration/EscalationIntegrationTest.java`
 
 ### Implementation for User Story 4
 
-- [ ] T110 [P] [US4] Create `MockEmailNotificationAdapter` for dev profile in `order-service/src/main/java/com/ecommerce/order/adapter/out/notification/MockEmailNotificationAdapter.java`
-- [ ] T111 [P] [US4] Create `EmailNotificationAdapter` for prod profile in `order-service/src/main/java/com/ecommerce/order/adapter/out/notification/EmailNotificationAdapter.java`
-- [ ] T112 [US4] Update `RollbackRoute` to call `NotificationPort` after max retries exceeded
-- [ ] T113 [US4] Add notifiedAt timestamp recording in `TransactionLogPort`
+- [x] T110 [P] [US4] Create `MockEmailNotificationAdapter` for dev profile in `order-service/src/main/java/com/ecommerce/order/adapter/out/notification/MockEmailNotificationAdapter.java`
+- [x] T111 [P] [US4] Create `EmailNotificationAdapter` for prod profile in `order-service/src/main/java/com/ecommerce/order/adapter/out/notification/EmailNotificationAdapter.java`
+- [x] T112 [US4] Update `RollbackService` to call `NotificationPort` after max retries exceeded
+- [x] T113 [US4] Add notifiedAt timestamp recording in `TransactionLogPort`
 
 **Checkpoint**: Rollback failure triggers notification. 5 failures → admin email sent → notifiedAt recorded.
 
@@ -287,14 +287,14 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Tests for User Story 5
 
-- [ ] T114 [P] [US5] Write unit test for `SagaRecoveryService` in `order-service/src/test/java/com/ecommerce/order/application/service/SagaRecoveryServiceTest.java`
-- [ ] T115 [P] [US5] Write integration test for recovery scenario in `order-service/src/test/java/com/ecommerce/order/integration/RecoveryIntegrationTest.java`
+- [x] T114 [P] [US5] Write unit test for `SagaRecoveryService` in `order-service/src/test/java/com/ecommerce/order/application/service/SagaRecoveryServiceTest.java`
+- [x] T115 [P] [US5] Write integration test for recovery scenario in `order-service/src/test/java/com/ecommerce/order/integration/RecoveryIntegrationTest.java`
 
 ### Implementation for User Story 5
 
-- [ ] T116 [US5] Create `SagaRecoveryService` in `order-service/src/main/java/com/ecommerce/order/application/service/SagaRecoveryService.java`
-- [ ] T117 [US5] Create `SagaRecoveryRunner` implementing `ApplicationRunner` in `order-service/src/main/java/com/ecommerce/order/infrastructure/recovery/SagaRecoveryRunner.java`
-- [ ] T118 [US5] Add `findUnfinishedTransactions()` query to `TransactionLogPort`
+- [x] T116 [US5] Create `SagaRecoveryService` in `order-service/src/main/java/com/ecommerce/order/application/service/SagaRecoveryService.java`
+- [x] T117 [US5] Create `SagaRecoveryRunner` implementing `ApplicationRunner` in `order-service/src/main/java/com/ecommerce/order/infrastructure/recovery/SagaRecoveryRunner.java`
+- [x] T118 [US5] Add `findUnfinishedTransactions()` query to `TransactionLogPort`
 
 **Checkpoint**: Recovery works. Incomplete txs exist → restart → all resumed within 30 seconds.
 
@@ -308,16 +308,16 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Tests for User Story 6
 
-- [ ] T119 [P] [US6] Write contract tests for Admin API endpoints in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/AdminControllerContractTest.java`
-- [ ] T120 [P] [US6] Write unit test for `SagaConfigService` in `order-service/src/test/java/com/ecommerce/order/application/service/SagaConfigServiceTest.java`
+- [x] T119 [P] [US6] Write contract tests for Admin API endpoints in `order-service/src/test/java/com/ecommerce/order/adapter/in/web/AdminControllerContractTest.java`
+- [x] T120 [P] [US6] Write unit test for `SagaConfigService` in `order-service/src/test/java/com/ecommerce/order/application/service/SagaConfigServiceTest.java`
 
 ### Implementation for User Story 6
 
-- [ ] T121 [US6] Create `SagaConfigUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/SagaConfigUseCase.java`
-- [ ] T122 [US6] Create `SagaConfigService` with active/pending config management in `order-service/src/main/java/com/ecommerce/order/application/service/SagaConfigService.java`
-- [ ] T123 [US6] Create `SagaConfigPersistenceAdapter` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigPersistenceAdapter.java`
-- [ ] T124 [US6] Create `AdminController` with 6 config endpoints in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/AdminController.java`
-- [ ] T125 [US6] Create admin request/response DTOs in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/dto/`
+- [x] T121 [US6] Create `SagaConfigUseCase` port in `order-service/src/main/java/com/ecommerce/order/application/port/in/SagaConfigUseCase.java`
+- [x] T122 [US6] Create `SagaConfigService` with active/pending config management in `order-service/src/main/java/com/ecommerce/order/application/service/SagaConfigService.java`
+- [x] T123 [US6] Create `SagaConfigPersistenceAdapter` in `order-service/src/main/java/com/ecommerce/order/adapter/out/persistence/SagaConfigPersistenceAdapter.java`
+- [x] T124 [US6] Create `AdminController` with 6 config endpoints in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/AdminController.java`
+- [x] T125 [US6] Create admin request/response DTOs in `order-service/src/main/java/com/ecommerce/order/adapter/in/web/dto/`
 
 **Checkpoint**: Config API works. PUT config → POST apply → new orders use new config.
 
@@ -329,9 +329,9 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### Observability
 
-- [ ] T126 [P] Create `SagaMetrics` with Micrometer counters/timers in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/SagaMetrics.java`
-- [ ] T127 [P] Create `TracingConfig` for distributed tracing in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/TracingConfig.java`
-- [ ] T128 [P] Add structured logging with txId correlation across all services
+- [x] T126 [P] Create `SagaMetrics` with Micrometer counters/timers in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/SagaMetrics.java`
+- [x] T127 [P] Create `TracingConfig` for distributed tracing in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/TracingConfig.java`
+- [x] T128 [P] Add structured logging with txId correlation across all services
 
 ### Documentation & Validation
 
@@ -341,20 +341,20 @@ Based on plan.md, this is a **Monorepo with 4 microservices**:
 
 ### BDD Acceptance Tests
 
-- [ ] T132 [P] Write BDD acceptance test for happy path scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/HappyPathAcceptanceTest.java`
-- [ ] T133 [P] Write BDD acceptance test for rollback scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/RollbackAcceptanceTest.java`
-- [ ] T134 [P] Write BDD acceptance test for timeout scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/TimeoutAcceptanceTest.java`
+- [x] T132 [P] Write BDD acceptance test for happy path scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/HappyPathAcceptanceTest.java`
+- [x] T133 [P] Write BDD acceptance test for rollback scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/RollbackAcceptanceTest.java`
+- [x] T134 [P] Write BDD acceptance test for timeout scenario in `order-service/src/test/java/com/ecommerce/order/acceptance/TimeoutAcceptanceTest.java`
 
 ### Load Testing (SC-002)
 
-- [ ] T135 [P] Add Gatling dependency to `order-service/build.gradle.kts` for load testing
-- [ ] T136 [P] Create Gatling load test for 100 orders/sec in `order-service/src/test/scala/com/ecommerce/order/loadtest/OrderLoadTest.scala`
-- [ ] T137 Run load test and document results in `specs/001-saga-orchestration/load-test-results.md`
+- [x] T135 [P] Add Gatling dependency to `order-service/build.gradle.kts` for load testing
+- [x] T136 [P] Create Gatling load test for 100 orders/sec in `order-service/src/gatling/scala/com/ecommerce/order/loadtest/OrderLoadTest.scala`
+- [x] T137 Create load test documentation template in `specs/001-saga-orchestration/load-test-results.md`
 
 ### Availability Monitoring (SC-009)
 
-- [ ] T138 [P] Configure Spring Boot Actuator health endpoints with detailed checks in `order-service/src/main/resources/application.yml`
-- [ ] T139 [P] Add availability metric (uptime counter) to `SagaMetrics` in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/SagaMetrics.java`
+- [x] T138 [P] Configure Spring Boot Actuator health endpoints with detailed checks in `order-service/src/main/resources/application.yml`
+- [x] T139 [P] Add availability metric (uptime counter) to `SagaMetrics` in `order-service/src/main/java/com/ecommerce/order/infrastructure/observability/SagaMetrics.java`
 
 ---
 

@@ -1,9 +1,9 @@
 package com.ecommerce.logistics.application.service;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
+import com.ecommerce.logistics.domain.model.Shipment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,13 +53,13 @@ class LogisticsServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = logisticsService.scheduleShipment(request);
+            Shipment shipment = logisticsService.scheduleShipment(request);
 
             // Then
-            assertThat(response.success()).isTrue();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.serviceReference()).startsWith("TRK-");
-            assertThat(response.message()).isEqualTo("Shipment scheduled");
+            assertThat(shipment.isScheduled()).isTrue();
+            assertThat(shipment.getTxId()).isEqualTo(txId);
+            assertThat(shipment.getTrackingNumber()).startsWith("TRK-");
+            assertThat(shipment.getStatus()).isEqualTo(Shipment.ShipmentStatus.SCHEDULED);
         }
 
         @Test
@@ -70,13 +70,13 @@ class LogisticsServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse firstResponse = logisticsService.scheduleShipment(request);
-            NotifyResponse secondResponse = logisticsService.scheduleShipment(request);
+            Shipment firstShipment = logisticsService.scheduleShipment(request);
+            Shipment secondShipment = logisticsService.scheduleShipment(request);
 
             // Then
-            assertThat(firstResponse.success()).isTrue();
-            assertThat(secondResponse.success()).isTrue();
-            assertThat(firstResponse.serviceReference()).isEqualTo(secondResponse.serviceReference());
+            assertThat(firstShipment.isScheduled()).isTrue();
+            assertThat(secondShipment.isScheduled()).isTrue();
+            assertThat(firstShipment.getTrackingNumber()).isEqualTo(secondShipment.getTrackingNumber());
         }
 
         @Test
@@ -89,12 +89,12 @@ class LogisticsServiceTest {
             NotifyRequest request = createValidNotifyRequest(txId);
 
             // When
-            NotifyResponse response = logisticsService.scheduleShipment(request);
+            Shipment shipment = logisticsService.scheduleShipment(request);
 
             // Then
-            assertThat(response.success()).isFalse();
-            assertThat(response.txId()).isEqualTo(txId);
-            assertThat(response.message()).contains("Carrier unavailable");
+            assertThat(shipment.isScheduled()).isFalse();
+            assertThat(shipment.getTxId()).isEqualTo(txId);
+            assertThat(shipment.getStatus()).isEqualTo(Shipment.ShipmentStatus.CANCELLED);
         }
     }
 

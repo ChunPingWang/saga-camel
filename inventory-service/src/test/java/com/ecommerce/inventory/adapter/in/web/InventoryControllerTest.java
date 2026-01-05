@@ -1,11 +1,11 @@
 package com.ecommerce.inventory.adapter.in.web;
 
 import com.ecommerce.common.dto.NotifyRequest;
-import com.ecommerce.common.dto.NotifyResponse;
 import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.inventory.application.port.in.ReserveInventoryUseCase;
 import com.ecommerce.inventory.application.port.in.RollbackReservationUseCase;
+import com.ecommerce.inventory.domain.model.Reservation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +15,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,12 +49,15 @@ class InventoryControllerTest {
         UUID txId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         Map<String, Object> payload = Map.of(
-                "items", List.of(Map.of("sku", "SKU-001", "quantity", 2))
+                "items", List.of(Map.of("productId", "SKU-001", "productName", "Item", "quantity", 2))
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.success(txId, "Inventory reserved", "RES-12345678");
 
-        when(reserveInventoryUseCase.reserveInventory(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        List<Reservation.ReservedItem> items = List.of(new Reservation.ReservedItem("SKU-001", "Item", 2));
+        Reservation mockReservation = new Reservation(txId, orderId, items,
+                Reservation.ReservationStatus.RESERVED, "RES-12345678", LocalDateTime.now());
+
+        when(reserveInventoryUseCase.reserveInventory(any(NotifyRequest.class))).thenReturn(mockReservation);
 
         // When & Then
         mockMvc.perform(post("/api/v1/inventory/notify")
@@ -66,26 +70,28 @@ class InventoryControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/inventory/notify - should return failure response")
+    @DisplayName("POST /api/v1/inventory/notify - should return failure response for out of stock")
     void notify_shouldReturnFailureResponse() throws Exception {
         // Given
         UUID txId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         Map<String, Object> payload = Map.of(
-                "items", List.of(Map.of("sku", "SKU-001", "quantity", 2))
+                "items", List.of(Map.of("productId", "SKU-001", "productName", "Item", "quantity", 2))
         );
         NotifyRequest request = NotifyRequest.of(txId, orderId, payload);
-        NotifyResponse expectedResponse = NotifyResponse.failure(txId, "Out of stock");
 
-        when(reserveInventoryUseCase.reserveInventory(any(NotifyRequest.class))).thenReturn(expectedResponse);
+        List<Reservation.ReservedItem> items = List.of(new Reservation.ReservedItem("SKU-001", "Item", 2));
+        Reservation mockReservation = new Reservation(txId, orderId, items,
+                Reservation.ReservationStatus.OUT_OF_STOCK, null, LocalDateTime.now());
+
+        when(reserveInventoryUseCase.reserveInventory(any(NotifyRequest.class))).thenReturn(mockReservation);
 
         // When & Then
         mockMvc.perform(post("/api/v1/inventory/notify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Out of stock"));
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test

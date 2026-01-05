@@ -6,8 +6,10 @@ import com.ecommerce.common.dto.RollbackRequest;
 import com.ecommerce.common.dto.RollbackResponse;
 import com.ecommerce.inventory.application.port.in.ReserveInventoryUseCase;
 import com.ecommerce.inventory.application.port.in.RollbackReservationUseCase;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.ecommerce.inventory.domain.model.Reservation;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,8 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/inventory")
-@Tag(name = "Inventory", description = "Inventory reservation operations")
 public class InventoryController {
+
+    private static final Logger log = LoggerFactory.getLogger(InventoryController.class);
 
     private final ReserveInventoryUseCase reserveInventoryUseCase;
     private final RollbackReservationUseCase rollbackReservationUseCase;
@@ -31,17 +34,59 @@ public class InventoryController {
         this.rollbackReservationUseCase = rollbackReservationUseCase;
     }
 
+    /**
+     * Reserve inventory notification from the saga orchestrator.
+     *
+     * @param request the notify request containing order items
+     * @return the notify response with reservation result
+     */
     @PostMapping("/notify")
-    @Operation(summary = "Reserve inventory", description = "Reserve inventory for an order (idempotent)")
-    public ResponseEntity<NotifyResponse> notify(@RequestBody NotifyRequest request) {
-        NotifyResponse response = reserveInventoryUseCase.reserveInventory(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<NotifyResponse> notify(@Valid @RequestBody NotifyRequest request) {
+        log.info("Received inventory notification for txId={}", request.txId());
+
+        try {
+            Reservation reservation = reserveInventoryUseCase.reserveInventory(request);
+
+            if (reservation.isReserved()) {
+                return ResponseEntity.ok(NotifyResponse.success(
+                        request.txId(),
+                        "Inventory reserved",
+                        reservation.getReferenceNumber()
+                ));
+            } else {
+                return ResponseEntity.ok(NotifyResponse.failure(
+                        request.txId(),
+                        "Out of stock"
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Inventory reservation failed for txId={}: {}", request.txId(), e.getMessage(), e);
+            return ResponseEntity.ok(NotifyResponse.failure(
+                    request.txId(),
+                    "Inventory reservation error: " + e.getMessage()
+            ));
+        }
     }
 
+    /**
+     * Release inventory rollback from the saga orchestrator.
+     *
+     * @param request the rollback request containing transaction details
+     * @return the rollback response with result
+     */
     @PostMapping("/rollback")
-    @Operation(summary = "Release inventory", description = "Release reserved inventory (idempotent)")
-    public ResponseEntity<RollbackResponse> rollback(@RequestBody RollbackRequest request) {
-        RollbackResponse response = rollbackReservationUseCase.releaseInventory(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<RollbackResponse> rollback(@Valid @RequestBody RollbackRequest request) {
+        log.info("Received inventory rollback for txId={}", request.txId());
+
+        try {
+            RollbackResponse response = rollbackReservationUseCase.releaseInventory(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Inventory release failed for txId={}: {}", request.txId(), e.getMessage(), e);
+            return ResponseEntity.ok(RollbackResponse.failure(
+                    request.txId(),
+                    "Inventory release error: " + e.getMessage()
+            ));
+        }
     }
 }
